@@ -33,22 +33,14 @@ def return_next(emission_x, emission_y, emission_k, px, py):
 
 
 #撞击函数
-def collisionprocess(Si_array, px, py, species, reaction_probabilities):
+def collisionprocess(Si_array, px, py ,species):
     if not  Si_array[px, py].existflag:
         return False
-    #获得粒子类型和俘获活性种数目，确定反应概率
-    if species == 1:
-        particle_type = 'Cl+'
-    else:
-        particle_type = 'Cl*'
-    clearflag = False
-    Count = Si_array[px, py].ConuCl
-    prob = reaction_probabilities[Count][particle_type]
 
+    clearflag = False
     #4+1的逻辑
-    # if Si_array[px, py].ConuCl == 4 and species == 1:#和活性种复合过四次且被氯离子冲击过
+    if Si_array[px, py].ConuCl == 4 and species == 1:#和活性种复合过四次且被氯离子冲击过
         # Si_array[px, py].existflag = False
-    if random.random() < prob:
         clearflag = True
     elif not species and Si_array[px, py].ConuCl < 4:
         Si_array[px, py].ConuCl +=1
@@ -81,17 +73,8 @@ def main():
     s_image[0:30, 0:30] = 40
     s_image[30:40, 0:30] = 25
     s_image[40:70, 0:30] = 40
-    # 顺序三：撞击时的反应概率
-    reaction_probabilities = {
-        0: {'Cl*': 0.0, 'Cl+': 0.1},  # 未俘获Cl
-        1: {'Cl*': 0.1, 'Cl+': 0.3},  # 俘获1个Cl
-        2: {'Cl*': 0.2, 'Cl+': 0.3},  # 俘获2个Cl
-        3: {'Cl*': 0.3, 'Cl+': 0.3},  # 俘获3个Cl
-        4: {'Cl*': 1.0, 'Cl+': 0.3}  # 俘获4个Cl
-    }
-
     #模拟粒子入射
-    for cl in range(3000):
+    for cl in range(7000):
         emission_x = 30 + random.random() * 10
         species = random.random() > (10/11)
         # emission_theta = (random.random()-0.5) * math.pi
@@ -109,7 +92,7 @@ def main():
             px = math.ceil(emission_x)
             for py in range(31, 100):
                 if 0 <= px < rows and Si_array[px, py].existflag:
-                    clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities) # 碰撞函数
+                    clearflag = collisionprocess(Si_array, px, py, species) # 碰撞函数
                     if clearflag:
                         s_image[px, py] = 25
                     break
@@ -130,7 +113,7 @@ def main():
                 break
 
             if Si_array[px, py].existflag:
-                clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities) # 碰撞函数
+                clearflag = collisionprocess(Si_array, px, py, species) # 碰撞函数
                 if clearflag:
                     s_image[px, py] = 25
                 break
