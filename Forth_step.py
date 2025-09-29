@@ -159,7 +159,7 @@ def main():
     }
 
     #模拟粒子入射
-    for cl in range(600000):
+    for cl in range(200000):
         emission_x = left_border + random.random() * 100
         species = random.random() > (10/11)
         # emission_theta = (random.random()-0.5) * math.pi
@@ -194,7 +194,7 @@ def main():
             py = left_border
 
         #运动轨迹追踪
-        max_steps = 1000  # 防止无限循环
+        max_steps = 2000  # 防止无限循环
         for step in range(max_steps):
             # next_pos  = return_next(emission_x, 1, emission_k, px, py)
             # px, py = next_pos
@@ -212,12 +212,24 @@ def main():
 
 
 
-    plt.figure(figsize=(10, 8))
-    plt.imshow(np.rot90(s_image, -1), cmap='jet', vmin=0, vmax=100)
-    plt.colorbar(label='表面状态')
-    plt.title('刻蚀效果模拟')
+    plt.figure(figsize=(12, 8))
+    # 顺时针旋转90度（符合常规视角：x→横向，y→纵向）
+    rotated_image = np.rot90(s_image, -1)
+    plt.imshow(rotated_image, cmap='jet', vmin=0, vmax=100)
+    # plt.colorbar(label='表面状态（1=Si衬底，25=真空，40=光刻胶）')
+    # plt.title('Simulation of silicon wafer etching effect')
+
+    # 添加标注（根据旋转后的坐标）
+    # 左边掩膜（旋转后：x=0-299，y=400-699）
+    plt.text(500, 150, 'MASK', fontsize=14, color='white', fontweight='bold')
+    # 右边掩膜（旋转后：x=0-299，y=0-298）
+    plt.text(100, 150, 'MASK', fontsize=14, color='white', fontweight='bold')
+    # 衬底（旋转后：x≥300，y=0-699）
+    plt.text(100, 400, 'Substrate', fontsize=14, color='yellow', fontweight='bold')
+
     plt.axis('equal')
-    plt.axis('off')
+    plt.axis('off')  # 隐藏坐标轴
+    plt.tight_layout()
     plt.show()
 
 if __name__ == "__main__":

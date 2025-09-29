@@ -58,24 +58,28 @@ def simple_angle_emission():
 
 def main():
     # 数据层面上初始化仿真界面
-    Si_array = np.empty(shape=(70,100), dtype=object)
-    for i in range(70):
-        for j in range(100):
+    rows = 700
+    cols = 1000
+    left_border = 300
+    right_border = 400
+    Si_array = np.empty(shape=(rows,cols), dtype = object)
+    for i in range(rows):
+        for j in range(cols):
             Si_array[i, j] = Si_Class()
     # 将上面一半的si原子去除
-    for i in range(70):
-        for j in range(30):
+    for i in range(rows):
+        for j in range(left_border):
             Si_array[i, j].existflag = False
 
 
     # 在图像和数据层面初始化界面
-    s_image = np.ones((70, 100))
-    s_image[0:30, 0:30] = 40
-    s_image[30:40, 0:30] = 25
-    s_image[40:70, 0:30] = 40
+    s_image = np.ones((rows,cols))
+    s_image[0:left_border, 0:left_border] = 40  #光刻胶
+    s_image[left_border + 1:right_border, 0:left_border] = 25 #真空
+    s_image[right_border + 1:rows, 0:left_border] = 40 #光刻胶
     #模拟粒子入射
-    for cl in range(7000):
-        emission_x = 30 + random.random() * 10
+    for cl in range(200000):
+        emission_x = left_border + random.random() * 100
         species = random.random() > (10/11)
         # emission_theta = (random.random()-0.5) * math.pi
         # emission_k = np.tan(emission_theta)
@@ -83,29 +87,28 @@ def main():
         abs_k = np.abs(emission_k)
         #粒子初始位置
         emission_y = 1
-        rows, cols = 70, 100
 
         #粒子初始角度确认，处理不同斜率情况
         if abs_k <= 0.1:#近似水平
             continue
         elif abs_k >= 200:#近似垂直
             px = math.ceil(emission_x)
-            for py in range(31, 100):
+            for py in range(left_border + 1, cols):
                 if 0 <= px < rows and Si_array[px, py].existflag:
                     clearflag = collisionprocess(Si_array, px, py, species) # 碰撞函数
                     if clearflag:
                         s_image[px, py] = 25
                     break
         else:
-            x_intersect = (30.5 - emission_y)/emission_k + emission_x
-            if x_intersect < 30 or x_intersect > 40:
+            x_intersect = (left_border + 0.5 - emission_y)/emission_k + emission_x
+            if x_intersect < left_border or x_intersect > right_border:
                 continue
 
             px = int(x_intersect)
-            py = 31
+            py = left_border + 1
 
         #运动轨迹追踪
-        max_steps = 1000  # 防止无限循环
+        max_steps = 1500  # 防止无限循环
         for step in range(max_steps):
             # next_pos  = return_next(emission_x, 1, emission_k, px, py)
             # px, py = next_pos
@@ -123,12 +126,24 @@ def main():
 
 
 
-    plt.figure(figsize=(10, 8))
-    plt.imshow(np.rot90(s_image, -1), cmap='jet', vmin=0, vmax=100)
-    plt.colorbar(label='表面状态')
-    plt.title('刻蚀效果模拟')
+    plt.figure(figsize=(12, 8))
+    # 顺时针旋转90度（符合常规视角：x→横向，y→纵向）
+    rotated_image = np.rot90(s_image, -1)
+    plt.imshow(rotated_image, cmap='jet', vmin=0, vmax=100)
+    # plt.colorbar(label='表面状态（1=Si衬底，25=真空，40=光刻胶）')
+    # plt.title('Simulation of silicon wafer etching effect')
+
+    # 添加标注（根据旋转后的坐标）
+    # 左边掩膜（旋转后：x=0-299，y=400-699）
+    plt.text(500, 150, 'MASK', fontsize=14, color='white', fontweight='bold')
+    # 右边掩膜（旋转后：x=0-299，y=0-298）
+    plt.text(100, 150, 'MASK', fontsize=14, color='white', fontweight='bold')
+    # 衬底（旋转后：x≥300，y=0-699）
+    plt.text(100, 400, 'Substrate', fontsize=14, color='yellow', fontweight='bold')
+
     plt.axis('equal')
-    plt.axis('off')
+    plt.axis('off')  # 隐藏坐标轴
+    plt.tight_layout()
     plt.show()
 
 if __name__ == "__main__":
