@@ -9,7 +9,7 @@ class Si_atom():
 
 def collisionprocess(si_array, px, py):
     if not  si_array[px, py].existflag:
-        return
+        return False
     clearflag =False
     if si_array[px, py].Countcl == 4:
         clearflag = True
