@@ -252,12 +252,25 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
 
 def main():
     # 数据层面上初始化仿真界面
-    vacuum = 50
-    rows = 700
-    cols = 1000
-    left_border = 300
-    right_border = 400
-    deep_border = 300
+    vacuum = 50 # 真空大小
+    rows = 700 * 3 # 行数
+    cols = 1000 * 3 # 列数
+    left_border = 200 # 左边界
+    right_border = 300 # 右边界
+    deep_border = 300 # 深度
+    Num = 3 # 模拟结构数量，一个dense里的isolate数量
+    CD = right_border - left_border # 开口大小
+    Space = 200 # 图形之间的大小
+
+    # 顺序三：撞击时的反应概率
+    reaction_probabilities = {
+        0: {'Cl*': 0.0, 'Cl+': 0.1},  # 未俘获Cl
+        1: {'Cl*': 0.1, 'Cl+': 0.3},  # 俘获1个Cl
+        2: {'Cl*': 0.2, 'Cl+': 0.3},  # 俘获2个Cl
+        3: {'Cl*': 0.3, 'Cl+': 0.3},  # 俘获3个Cl
+        4: {'Cl*': 1.0, 'Cl+': 0.3}  # 俘获4个Cl
+    }
+
     Si_array = np.empty(shape=(rows,cols), dtype=object)
     # 数据初始化整合到下面的图形初始化里面了，一块初始化
     for i in range(rows):
@@ -274,46 +287,58 @@ def main():
     # 在图像和数据层面初始化界面
     angle_img = abs(math.asin(2 * random.random() - 1))
     k_img = abs(math.tan(angle_img))
-    # 入射开口限幅
-    if deep_border * k_img > rows / 2:
-        k_img = (rows - right_border - 1) / deep_border
-    #初始化图像数组
+    # 初始化图像数组
     s_image = np.ones((rows, cols))
     # 初始化真空界面
     for y in range(vacuum):
         for x in range(rows):
             if Si_array[x, y].existflag == False:
                 s_image[x, y] = 25  # 真空
-    # 初始化掩膜界面
+
+    for i in range(Num):
+        # 计算当前开口
+        # print(left_border, right_border)
+        # print(i, CD, Space, i * (CD + Space))
+        left_border = left_border + CD + Space  # 左边界
+        right_border = right_border + CD + Space # 右边界
+        # print(left_border, right_border)
+        # print(i, CD, Space, i * (CD + Space))
+        # 入射开口限幅
+        if deep_border * k_img > ((right_border - left_border) + Space) / 2:
+            k_img = (((right_border - left_border) + Space) / 2) / deep_border
+        # 初始化掩膜界面
+        for y in range(vacuum, deep_border):
+            offset = int((deep_border - y) * k_img) # 偏移量
+            left_current = left_border - offset
+            right_current = right_border + offset
+            # 确保不出界
+            left_current = max(0, min(left_current, rows - 1))
+            right_current = max(0, min(right_current, rows - 1))
+            # 遍历当前y行沟道范围内的x坐标
+            left_side = left_border - int(Space / 2)
+            right_side = right_border + int(Space / 2)
+            if i ==0:
+                for x in range(0, left_side):
+                    s_image[x, y] = 40  # 光刻胶
+                    Si_array[x, y].material_type = 'Hardmask'
+                    Si_array[x, y].existflag = True
+            for x in range(left_side, right_side):
+                if  left_current < x < right_current:
+                    s_image[x, y] = 25  # 真空
+                    Si_array[x, y].existflag = False
+                else:
+                    s_image[x, y] = 40  # 光刻胶
+                    Si_array[x, y].material_type = 'Hardmask'
+                    Si_array[x, y].existflag = True
+    # 将其余掩膜初始化
     for y in range(vacuum, deep_border):
-        offset = int((deep_border - y) * k_img) # 偏移量
-        left_current = left_border - offset
-        right_current = right_border + offset
-        # 确保不出界
-        left_current = max(0, min(left_current, rows - 1))
-        right_current = max(0, min(right_current, rows - 1))
-        # 遍历当前y行的所有x坐标
-        for x in range(rows):
-            if  left_current < x < right_current:
-                s_image[x, y] = 25  # 真空
-                Si_array[x, y].existflag = False
-            else:
-                s_image[x, y] = 40  # 光刻胶
-                Si_array[x, y].material_type = 'Hardmask'
-                Si_array[x, y].existflag = True
-
-
-    # 顺序三：撞击时的反应概率
-    reaction_probabilities = {
-        0: {'Cl*': 0.0, 'Cl+': 0.1},  # 未俘获Cl
-        1: {'Cl*': 0.1, 'Cl+': 0.3},  # 俘获1个Cl
-        2: {'Cl*': 0.2, 'Cl+': 0.3},  # 俘获2个Cl
-        3: {'Cl*': 0.3, 'Cl+': 0.3},  # 俘获3个Cl
-        4: {'Cl*': 1.0, 'Cl+': 0.3}  # 俘获4个Cl
-    }
+        for x in range(right_side, rows - 1):
+            s_image[x, y] = 40  # 光刻胶
+            Si_array[x, y].material_type = 'Hardmask'
+            Si_array[x, y].existflag = True
 
     #模拟粒子入射
-    for cl in range(200000):
+    for cl in range(2000):
         # 考虑openCD对形貌影响
         emission_x = left_border + random.random() * (right_border - left_border)
         species = random.random() > (10/11)
