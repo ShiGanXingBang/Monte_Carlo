@@ -13,25 +13,46 @@ class Si_Class:
         self.reflect_count = reflect_count
 
 #运动方向判断
-def return_next(emission_x, emission_y, emission_k, px, py):
-    #向右下运动
-    if emission_k > 0:
-        y = emission_y + emission_k * ((px + 0.5) - emission_x)
-        #向右运动
-        if y <= py +0.5:
-            return [px + 1, py]
+def return_next(emission_x, emission_y, emission_k, px, py, direction=1):
+    # 向下方运动
+    if direction >= 0:
+        #向右下运动
+        if emission_k > 0:
+            y = emission_y + emission_k * ((px + 0.5) - emission_x)
+            #向右运动
+            if y <= py +0.5:
+                return [px + 1, py]
+            else:
+                return [px, py + 1]
+        #向左下运动
+        elif emission_k < 0:
+            y = emission_y + emission_k * ((px - 0.5) - emission_x)
+            if y <= py + 0.5:
+                return [px - 1, py]
+            else:
+                return [px, py + 1]
+        #垂直向下 k=0
         else:
             return [px, py + 1]
-    #向左下运动
-    elif emission_k < 0:
-        y = emission_y + emission_k * ((px - 0.5) - emission_x)
-        if y <= py + 0.5:
-            return [px - 1, py]
-        else:
-            return [px, py + 1]
-    #垂直向下 k=0
     else:
-        return [px, py + 1]
+        if emission_k > 0:
+            y = emission_y + emission_k * ((px - 0.5) - emission_x)
+            #向左上运动
+            if y <= py - 0.5:
+                return [px, py - 1]
+            else:
+                return [px - 1, py]
+        #向右上运动
+        elif emission_k < 0:
+            y = emission_y + emission_k * ((px + 0.5) - emission_x)
+            if y <= py - 0.5:
+                return [px, py - 1]
+            else:
+                return [px + 1, py]
+        #垂直向下 k=0
+        else:
+            return [px, py - 1]
+
 
 
 # 计算YSi/Cl+,刻蚀产额
@@ -68,6 +89,20 @@ def calculate_Ychem():
     Tcl = (1 / 4) * Ncl * u  # 粒子通量
     Ychem = ERchem / Tcl
     return Ychem
+
+
+# 链式反应概率, Ysicl > 1时影响周边原子
+def chain_reaction(Si_array, px, py, Ysicl, s_image):
+    neighbor = [
+        (px + 1, py),(px - 1, py),(px, py + 1),(px, py - 1)
+    ]
+    for nx, ny in neighbor:
+        if 0 <= nx < Si_array.shape[0] and 0 <= ny < Si_array.shape[1]:
+            if Si_array[nx, ny].existflag and Si_array[nx, ny].CountCl == 4:
+                if random.random() < Ysicl:
+                    Si_array[nx, ny].existflag = False
+                    s_image[nx, ny] = 25
+
 
 # 掩膜和衬底反射概率
 def reflect_prob(theta, material):
@@ -118,7 +153,7 @@ def reflector_face(Si_array, center_i, center_j, n=4):
     theta = np.linalg.lstsq(A, y_list, rcond=None)[0]  # 使用lstsq更稳定
     k = theta[1]
     n = np.array([-k ,1])
-    n_normal = k / np.linalg.norm(n)
+    n_normal = n / np.linalg.norm(n)
     return k, n_normal
 
 
@@ -127,54 +162,42 @@ def reflector_face(Si_array, center_i, center_j, n=4):
 def reflect_angle(Si_array, px, py, k, reflext_prob):
     is_reflect_flag = 0
     reflect_k = k
+    V_out = np.array([0, 0])
 
     if Si_array[px, py].existflag == True:
         count = 1 # 反射次数,只反射一次
         if Si_array[px, py].reflect_count < count:
-            if random.random() < reflext_prob:
-                # 计算入射向量,k是斜率
-                V_in = np.array([1, k])
-                V_in = V_in / np.linalg.norm(V_in)
+            incident_angle = math.atan(abs(k))
+            if incident_angle > math.radians(10):
+                if random.random() < reflext_prob:
+                    # 计算入射向量,k是斜率
+                    V_in = np.array([1, k])
+                    V_in = V_in / np.linalg.norm(V_in)
 
-                # 获取法线向量和反射向量- 添加安全检查
-                result = reflector_face(Si_array, px, py, n=4)
-                if result is None or result[1] is None:
-                    # 无法获取法线，使用默认垂直法线
-                    N = np.array([0, 1])
-                else:
-                    k_val, N = result
+                    # 获取法线向量和反射向量- 添加安全检查
+                    result = reflector_face(Si_array, px, py, n=4)
+                    if result is None or result[1] is None:
+                        # 无法获取法线，使用默认垂直法线
+                        N = np.array([0, 1])
+                    else:
+                        k_val, N = result
 
-                # 计算反射向量
-                V_out = V_in - 2 * (np.dot(V_in, N)) * N
+                    # 计算反射向量
+                    V_out = V_in - 2 * (np.dot(V_in, N)) * N
 
-                # 计算反射斜率
-                if abs(V_out[0]) < 1e-10:  # 避免除零错误
-                    reflect_k = float('inf')  # 垂直运动
-                else:
-                    reflect_k = V_out[1] / V_out[0]
+                    # 计算反射斜率
+                    if abs(V_out[0]) < 1e-10:  # 避免除零错误
+                        reflect_k = float('inf')  # 垂直运动
+                    else:
+                        reflect_k = V_out[1] / V_out[0]
 
-                Si_array[px, py].reflect_count += 1
-                is_reflect_flag = 1
-                return is_reflect_flag, reflect_k
+                    Si_array[px, py].reflect_count += 1
+                    is_reflect_flag = 1
+                    return is_reflect_flag, reflect_k, V_out
 
-        return is_reflect_flag, reflect_k
+        return is_reflect_flag, reflect_k, V_out
     else:
-        return is_reflect_flag, reflect_k
-
-
-
-
-# 链式反应概率, Ysicl > 1时影响周边原子
-def chain_reaction(Si_array, px, py, Ysicl, s_image):
-    neighbor = [
-        (px + 1, py),(px - 1, py),(px, py + 1),(px, py - 1)
-    ]
-    for nx, ny in neighbor:
-        if 0 <= nx < Si_array.shape[0] and 0 <= ny < Si_array.shape[1]:
-            if Si_array[nx, ny].existflag and Si_array[nx, ny].CountCl == 4:
-                if random.random() < Ysicl:
-                    Si_array[nx, ny].existflag = False
-                    s_image[nx, ny] = 25
+        return is_reflect_flag, reflect_k, V_out
 
 #撞击函数
 def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image):
@@ -349,24 +372,33 @@ def main():
             if Si_array[px, py].existflag:
                 # 检查反射
                 ref_prob = reflect_prob(abs_angle, Si_array[px, py].material_type)
-                is_reflect, new_k = reflect_angle(Si_array, px, py, emission_k, ref_prob)
+                is_reflect, new_k, V_out= reflect_angle(Si_array, px, py, emission_k, ref_prob)
 
                 if is_reflect:
-                    # 这里有问题，明天改。重新初始化入射点
-                    emission_x, emission_y = px, py
-                    for step in range(max_steps):
-                        next_pos = return_next(emission_x, emission_y, new_k, px, py)
-                        px, py = next_pos
-                        # 边界约束
-                        if not (0 <= px < rows and 0 <= py < cols):
-                            break
-                        if Si_array[px, py].existflag == 1:
-                                clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle,s_image)  # 碰撞函数
-                                if clearflag:
-                                    s_image[px, py] = 25  #真空
-                        elif Si_array[px, py].existflag == 0:
-                            break  # 跳出循环
-                    break
+                    # 这里有问题，明天改。重新初始化入射点（根据反射向量的y分量）
+                    direction = 1 if V_out[1] >= 0 else -1
+
+                    # 更新粒子状态
+                    emission_k = new_k
+                    emission_x, emission_y = px, py  # 从反射点继续运动
+
+                    # 使用正确的方向参数调用return_next
+                    next_pos = return_next(emission_x, emission_y, emission_k, px, py, direction)
+                    px, py = next_pos
+                    continue  # 继续外部循环
+                    # for step in range(max_steps):
+                    #     next_pos = return_next(emission_x, emission_y, new_k, px, py, V_out[1])
+                    #     px, py = next_pos
+                    #     # 边界约束
+                    #     if not (0 <= px < rows and 0 <= py < cols):
+                    #         break
+                    #     if Si_array[px, py].existflag == 1:
+                    #             clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle,s_image)  # 碰撞函数
+                    #             if clearflag:
+                    #                 s_image[px, py] = 25  #真空
+                    #     elif Si_array[px, py].existflag == 0:
+                    #         break  # 跳出循环
+                    # break
                 else:  # 处理碰撞反应
                     clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image) # 碰撞函数
                     if clearflag:
