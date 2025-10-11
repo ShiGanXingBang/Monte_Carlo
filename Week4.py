@@ -253,14 +253,14 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
 def main():
     # 数据层面上初始化仿真界面
     vacuum = 50 # 真空大小
-    rows = 700 * 3 # 行数
-    cols = 1000 * 3 # 列数
-    left_border = 200 # 左边界
-    right_border = 300 # 右边界
+    rows = 700 * 2 # 行数
+    cols = 1000 # 列数
+    left_border_init = 250 # 左边界
+    right_border_init = 350 # 右边界
     deep_border = 300 # 深度
     Num = 3 # 模拟结构数量，一个dense里的isolate数量
-    CD = right_border - left_border # 开口大小
-    Space = 200 # 图形之间的大小
+    CD = right_border_init - left_border_init # 开口大小
+    Space = 300 # 图形之间的大小
 
     # 顺序三：撞击时的反应概率
     reaction_probabilities = {
@@ -299,13 +299,19 @@ def main():
         # 计算当前开口
         # print(left_border, right_border)
         # print(i, CD, Space, i * (CD + Space))
-        left_border = left_border + CD + Space  # 左边界
-        right_border = right_border + CD + Space # 右边界
-        # print(left_border, right_border)
-        # print(i, CD, Space, i * (CD + Space))
+        if i ==0:
+            left_border = left_border_init  # 左边界
+            right_border = right_border_init  # 右边界
+        else:
+            left_border = left_border + CD + Space  # 左边界
+            right_border = right_border + CD + Space # 右边界
+        print(0)
+        print(left_border, right_border)
+        print(i, CD, Space, i * (CD + Space))
+
         # 入射开口限幅
-        if deep_border * k_img > ((right_border - left_border) + Space) / 2:
-            k_img = (((right_border - left_border) + Space) / 2) / deep_border
+        if  k_img > ((right_border - left_border) + Space) / 2 / (deep_border - vacuum):
+            k_img = (((right_border - left_border) + Space) / 2) / (deep_border + 100) # 100没有实际含义，就是为了让两个入射边界有一个最低宽度的保证
         # 初始化掩膜界面
         for y in range(vacuum, deep_border):
             offset = int((deep_border - y) * k_img) # 偏移量
@@ -337,100 +343,99 @@ def main():
             Si_array[x, y].material_type = 'Hardmask'
             Si_array[x, y].existflag = True
 
-    #模拟粒子入射
-    for cl in range(2000):
-        # 考虑openCD对形貌影响
-        emission_x = left_border + random.random() * (right_border - left_border)
-        species = random.random() > (10/11)
-        # emission_theta = (random.random()-0.5) * math.pi
-        # emission_k = np.tan(emission_theta)
-        #一种正态分布
-
-        # 粒子入射概率判定
-        if species == 1:
-            # 离子入射概率
-            sigma = 0.0704  # 对于R=100
-            angle_rad = random.gauss(0, sigma)
-            abs_angle = abs(angle_rad)
-            emission_k = 1.0 / math.tan(angle_rad)
+    left_border = 200  # 左边界
+    right_border = 300  # 右边界
+    for i in range(Num):
+        if i ==0:
+            left_border = left_border_init  # 左边界
+            right_border = right_border_init  # 右边界
         else:
-            #中性粒子入射概率
-            angle_rad = math.asin(random.random() * 2 - 1)
-            abs_angle = abs(angle_rad)
-            emission_k =  1.0 / math.tan(angle_rad)
-        abs_k = np.abs(emission_k)
+            left_border = left_border + CD + Space  # 左边界
+            right_border = right_border + CD + Space # 右边界
+        print(1)
+        print(left_border, right_border)
+        print(i, CD, Space, i * (CD + Space))
+        #模拟粒子入射
+        for cl in range(200000):
+            # 考虑openCD对形貌影响
+            emission_x = left_border + random.random() * (right_border - left_border)
+            species = random.random() > (10/11)
+            # emission_theta = (random.random()-0.5) * math.pi
+            # emission_k = np.tan(emission_theta)
+            #一种正态分布
 
-        #粒子初始位置
-        emission_y = 1
-
-        #粒子初始角度确认，处理不同斜率情况
-        if abs_k <= 0.1:#近似水平
-            continue
-        elif abs_k >= 200:#近似垂直
-            px = math.ceil(emission_x)
-            for py in range(deep_border + 1, cols):
-                if 0 <= px < rows and Si_array[px, py].existflag:
-                    clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image) # 碰撞函数
-                    if clearflag:
-                        s_image[px, py] = 25  #真空
-                    break
-        else:
-            # 判定是否超出入射界限，后面需要改一下
-            # x_intersect = (deep_border + 0.5 - emission_y)/emission_k + emission_x
-            # if x_intersect < left_border or x_intersect > right_border:
-            #     continue
-
-            # x_intersect = (deep_border + 0.5 - emission_y) / emission_k + emission_x
-            # px = int(x_intersect)
-            # py = deep_border
-            px = int(emission_x)
-            py = emission_y
-        #运动轨迹追踪
-        max_steps = 2000  # 防止无限循环
-        for step in range(max_steps):
-            # next_pos  = return_next(emission_x, 1, emission_k, px, py)
-            # px, py = next_pos
-            if not (0 <= px < rows  and 0 <= py < cols):
-                break
-
-            if Si_array[px, py].existflag:
-                # 检查反射
-                ref_prob = reflect_prob(abs_angle, Si_array[px, py].material_type)
-                is_reflect, new_k, V_out= reflect_angle(Si_array, px, py, emission_k, ref_prob)
-
-                if is_reflect:
-                    # 这里有问题，明天改。重新初始化入射点（根据反射向量的y分量）
-                    direction = 1 if V_out[1] >= 0 else -1
-
-                    # 更新粒子状态
-                    emission_k = new_k
-                    emission_x, emission_y = px, py  # 从反射点继续运动
-
-                    # 使用正确的方向参数调用return_next
-                    next_pos = return_next(emission_x, emission_y, emission_k, px, py, direction)
-                    px, py = next_pos
-                    continue  # 继续外部循环
-                    # for step in range(max_steps):
-                    #     next_pos = return_next(emission_x, emission_y, new_k, px, py, V_out[1])
-                    #     px, py = next_pos
-                    #     # 边界约束
-                    #     if not (0 <= px < rows and 0 <= py < cols):
-                    #         break
-                    #     if Si_array[px, py].existflag == 1:
-                    #             clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle,s_image)  # 碰撞函数
-                    #             if clearflag:
-                    #                 s_image[px, py] = 25  #真空
-                    #     elif Si_array[px, py].existflag == 0:
-                    #         break  # 跳出循环
-                    # break
-                else:  # 处理碰撞反应
-                    clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image) # 碰撞函数
-                    if clearflag:
-                        s_image[px, py] = 25
-                    break
+            # 粒子入射概率判定
+            if species == 1:
+                # 离子入射概率
+                sigma = 0.0704  # 对于R=100
+                angle_rad = random.gauss(0, sigma)
+                abs_angle = abs(angle_rad)
+                emission_k = 1.0 / math.tan(angle_rad)
             else:
-                next_pos = return_next(emission_x, emission_y, emission_k, px, py)
-                px, py = next_pos
+                #中性粒子入射概率
+                angle_rad = math.asin(random.random() * 2 - 1)
+                abs_angle = abs(angle_rad)
+                emission_k =  1.0 / math.tan(angle_rad)
+            abs_k = np.abs(emission_k)
+
+            #粒子初始位置
+            emission_y = 1
+
+            #粒子初始角度确认，处理不同斜率情况
+            if abs_k <= 0.1:#近似水平
+                continue
+            elif abs_k >= 200:#近似垂直
+                px = math.ceil(emission_x)
+                for py in range(deep_border + 1, cols):
+                    if 0 <= px < rows and Si_array[px, py].existflag:
+                        clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image) # 碰撞函数
+                        if clearflag:
+                            s_image[px, py] = 25  #真空
+                        break
+            else:
+                # 判定是否超出入射界限，后面需要改一下
+                # x_intersect = (deep_border + 0.5 - emission_y)/emission_k + emission_x
+                # if x_intersect < left_border or x_intersect > right_border:
+                #     continue
+
+                # x_intersect = (deep_border + 0.5 - emission_y) / emission_k + emission_x
+                # px = int(x_intersect)
+                # py = deep_border
+                px = int(emission_x)
+                py = emission_y
+            #运动轨迹追踪
+            max_steps = 2000  # 防止无限循环
+            for step in range(max_steps):
+                # next_pos  = return_next(emission_x, 1, emission_k, px, py)
+                # px, py = next_pos
+                if not (0 <= px < rows  and 0 <= py < cols):
+                    break
+
+                if Si_array[px, py].existflag:
+                    # 检查反射
+                    ref_prob = reflect_prob(abs_angle, Si_array[px, py].material_type)
+                    is_reflect, new_k, V_out= reflect_angle(Si_array, px, py, emission_k, ref_prob)
+
+                    if is_reflect:
+                        # 这里有问题，明天改。重新初始化入射点（根据反射向量的y分量）
+                        direction = 1 if V_out[1] >= 0 else -1
+
+                        # 更新粒子状态
+                        emission_k = new_k
+                        emission_x, emission_y = px, py  # 从反射点继续运动
+
+                        # 使用正确的方向参数调用return_next
+                        next_pos = return_next(emission_x, emission_y, emission_k, px, py, direction)
+                        px, py = next_pos
+                        continue  # 继续外部循环
+                    else:  # 处理碰撞反应
+                        clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image) # 碰撞函数
+                        if clearflag:
+                            s_image[px, py] = 25
+                        break
+                else:
+                    next_pos = return_next(emission_x, emission_y, emission_k, px, py)
+                    px, py = next_pos
 
 
 
@@ -442,12 +447,12 @@ def main():
     # plt.title('Simulation of silicon wafer etching effect')
 
     # 添加标注（根据旋转后的坐标）
-    # 左边掩膜（旋转后：x=0-299，y=400-699）
-    plt.text(500, 150, 'MASK', fontsize=14, color='white', fontweight='bold')
+    # 左边掩膜
+    plt.text(855, 200, 'MASK', fontsize=14, color='white', fontweight='bold')
     # 右边掩膜（旋转后：x=0-299，y=0-298）
-    plt.text(100, 150, 'MASK', fontsize=14, color='white', fontweight='bold')
+    plt.text(455, 200, 'MASK', fontsize=14, color='white', fontweight='bold')
     # 衬底（旋转后：x≥300，y=0-699）
-    plt.text(280, 400, 'Substrate', fontsize=14, color='yellow', fontweight='bold')
+    plt.text(455, 400, 'Substrate', fontsize=14, color='yellow', fontweight='bold')
 
     plt.axis('equal')
     plt.axis('off')  # 隐藏坐标轴
