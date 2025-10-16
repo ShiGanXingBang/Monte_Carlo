@@ -311,7 +311,7 @@ def main():
 
         # 入射开口限幅
         if  k_img > ((right_border - left_border) + Space) / 2 / (deep_border - vacuum):
-            k_img = (((right_border - left_border) + Space) / 2) / (deep_border + 100) # 100没有实际含义，就是为了让两个入射边界有一个最低宽度的保证
+            k_img = (((right_border - left_border) + Space) / 2) / (deep_border + 900) # 100没有实际含义，就是为了让两个入射边界有一个最低宽度的保证
         # 初始化掩膜界面
         for y in range(vacuum, deep_border):
             offset = int((deep_border - y) * k_img) # 偏移量

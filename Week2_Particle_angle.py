@@ -134,6 +134,7 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
 
 def main():
     # 数据层面上初始化仿真界面
+    vacuum = 50
     rows = 700
     cols = 1000
     left_border = 300
@@ -142,7 +143,9 @@ def main():
     Si_array = np.empty(shape=(rows,cols), dtype=object)
     # 数据初始化整合到下面的图形初始化里面了，一块初始化
     for i in range(rows):
-        for j in range(cols):
+        for j in range(vacuum):
+            Si_array[i, j] = Si_Class(existflag = False)
+        for j in range(vacuum, cols):
             Si_array[i, j] = Si_Class()
 
     # 将上面一半的si原子去除，不清除，下面一起清除
@@ -152,13 +155,20 @@ def main():
 
     # 在图像和数据层面初始化界面
     angle_img = abs(math.asin(2 * random.random() - 1))
+    # angle_img = abs(math.asin(0))
     k_img = abs(math.tan(angle_img))
     # 入射开口限幅
     if deep_border * k_img > rows / 2:
         k_img = (rows - right_border - 1) / deep_border
     #初始化图像数组
     s_image = np.ones((rows, cols))
-    for y in range(deep_border):
+    # 初始化真空界面
+    for y in range(vacuum):
+        for x in range(rows):
+            if Si_array[x, y].existflag == False:
+                s_image[x, y] = 25  # 真空
+
+    for y in range(vacuum, deep_border):
         offset = int((deep_border - y) * k_img)
         left_current = left_border - offset
         right_current = right_border + offset
