@@ -137,8 +137,8 @@ def main():
     vacuum = 50
     rows = 700
     cols = 1000
-    left_border = 300
-    right_border = 400
+    left_border = 330
+    right_border = 370
     deep_border = 300
     Si_array = np.empty(shape=(rows,cols), dtype=object)
     # 数据初始化整合到下面的图形初始化里面了，一块初始化
@@ -154,8 +154,8 @@ def main():
     #         Si_array[i, j].existflag = False
 
     # 在图像和数据层面初始化界面
-    angle_img = abs(math.asin(2 * random.random() - 1))
-    # angle_img = abs(math.asin(0))
+    # angle_img = abs(math.asin(2 * random.random() - 1))
+    angle_img = abs(math.asin(0))
     k_img = abs(math.tan(angle_img))
     # 入射开口限幅
     if deep_border * k_img > rows / 2:

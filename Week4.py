@@ -285,7 +285,8 @@ def main():
     #         Si_array[i, j].existflag = False
 
     # 在图像和数据层面初始化界面
-    angle_img = abs(math.asin(2 * random.random() - 1))
+    # angle_img = abs(math.asin(2 * random.random() - 1))
+    angle_img = abs(math.asin(0))
     k_img = abs(math.tan(angle_img))
     # 初始化图像数组
     s_image = np.ones((rows, cols))
