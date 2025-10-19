@@ -134,11 +134,12 @@ def reflector_face(Si_array, center_i, center_j, n=4):
             if not Si_array[i, j].existflag:
                 continue
             is_boundary = False
-            if i > i_min and Si_array[i - 1, j].existflag: is_boundary = True
-            if j > j_min and Si_array[i, j - 1].existflag: is_boundary = True
-            if i < i_max and Si_array[i + 1, j].existflag: is_boundary = True
-            if j < j_max and Si_array[i, j + 1].existflag: is_boundary = True
-            if is_boundary == True:
+            if (i > i_min and not Si_array[i - 1, j].existflag) or \
+                    (j > j_min and not Si_array[i, j - 1].existflag) or \
+                    (i < i_max and not Si_array[i + 1, j].existflag) or \
+                    (j < j_max and not Si_array[i, j + 1].existflag):
+                is_boundary = True
+            if is_boundary:
                 x_list = np.append(x_list, i + 0.5)
                 y_list = np.append(y_list, j + 0.5)
     x_list = np.array(x_list)
@@ -158,7 +159,7 @@ def reflector_face(Si_array, center_i, center_j, n=4):
 
 
 # 生成反射角度
-def reflect_angle(Si_array, px, py, k, reflext_prob):
+def reflect_angle(Si_array, px, py, k, reflext_prob, direction = 1):
     is_reflect_flag = 0
     reflect_k = k
     V_out = np.array([0, 0])
@@ -170,7 +171,13 @@ def reflect_angle(Si_array, px, py, k, reflext_prob):
             if incident_angle > math.radians(10):
                 if random.random() < reflext_prob:
                     # 计算入射向量,k是斜率
-                    V_in = np.array([1, k])
+                    # direction 是方向
+                    if abs(k) < 1e-9:  # 避免除零
+                        # 近似水平运动
+                        V_in = np.array([direction * float('inf'), direction])
+                    else:
+                        V_in = np.array([direction / k, direction])
+
                     V_in = V_in / np.linalg.norm(V_in)
 
                     # 获取法线向量和反射向量- 添加安全检查
@@ -406,6 +413,7 @@ def main():
                 py = emission_y
             #运动轨迹追踪
             max_steps = 2000  # 防止无限循环
+            particle_direction = 1  # 初始方向向下
             for step in range(max_steps):
                 # next_pos  = return_next(emission_x, 1, emission_k, px, py)
                 # px, py = next_pos
@@ -415,7 +423,7 @@ def main():
                 if Si_array[px, py].existflag:
                     # 检查反射
                     ref_prob = reflect_prob(abs_angle, Si_array[px, py].material_type)
-                    is_reflect, new_k, V_out= reflect_angle(Si_array, px, py, emission_k, ref_prob)
+                    is_reflect, new_k, V_out= reflect_angle(Si_array, px, py, emission_k, ref_prob, particle_direction)
 
                     if is_reflect:
                         # 这里有问题，明天改。重新初始化入射点（根据反射向量的y分量）
@@ -426,8 +434,11 @@ def main():
                         emission_x, emission_y = px, py  # 从反射点继续运动
 
                         # 使用正确的方向参数调用return_next
-                        next_pos = return_next(emission_x, emission_y, emission_k, px, py, direction)
+                        next_pos = return_next(emission_x, emission_y, emission_k, px, py, particle_direction)
                         px, py = next_pos
+                        # 标记粒子轨迹
+                        # if px < rows and py < cols:
+                        #     s_image[px, py] = 60
                         continue  # 继续外部循环
                     else:  # 处理碰撞反应
                         clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image) # 碰撞函数
@@ -435,9 +446,11 @@ def main():
                             s_image[px, py] = 25
                         break
                 else:
-                    next_pos = return_next(emission_x, emission_y, emission_k, px, py)
+                    next_pos = return_next(emission_x, emission_y, emission_k, px, py, particle_direction)
                     px, py = next_pos
-
+                    # 标记粒子轨迹
+                    # if px < rows and py < cols:
+                    #     s_image[px, py] = 60
 
 
     plt.figure(figsize=(12, 8))

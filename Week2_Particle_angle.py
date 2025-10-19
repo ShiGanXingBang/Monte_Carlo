@@ -137,8 +137,8 @@ def main():
     vacuum = 50
     rows = 700
     cols = 1000
-    left_border = 330
-    right_border = 370
+    left_border = 300
+    right_border = 400
     deep_border = 300
     Si_array = np.empty(shape=(rows,cols), dtype=object)
     # 数据初始化整合到下面的图形初始化里面了，一块初始化
@@ -154,12 +154,12 @@ def main():
     #         Si_array[i, j].existflag = False
 
     # 在图像和数据层面初始化界面
-    # angle_img = abs(math.asin(2 * random.random() - 1))
-    angle_img = abs(math.asin(0))
+    angle_img = abs(math.asin(2 * random.random() - 1))
+    # angle_img = abs(math.asin(0))
     k_img = abs(math.tan(angle_img))
     # 入射开口限幅
-    if deep_border * k_img > rows / 2:
-        k_img = (rows - right_border - 1) / deep_border
+    if deep_border * k_img > rows / 4:
+        k_img = (rows - right_border - 1) / (4 * deep_border)
     #初始化图像数组
     s_image = np.ones((rows, cols))
     # 初始化真空界面
@@ -196,7 +196,7 @@ def main():
     }
 
     #模拟粒子入射
-    for cl in range(200000):
+    for cl in range(2000):
         # 考虑openCD对形貌影响
         emission_x = left_border + random.random() * (right_border - left_border)
         species = random.random() > (10/11)
@@ -259,8 +259,8 @@ def main():
             else:
                 next_pos = return_next(emission_x, emission_y, emission_k, px, py)
                 px, py = next_pos
-
-
+                # if px < rows and py < cols:
+                #     s_image[px, py] = 60
 
     plt.figure(figsize=(12, 8))
     # 顺时针旋转90度（符合常规视角：x→横向，y→纵向）
