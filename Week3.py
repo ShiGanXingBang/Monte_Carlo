@@ -356,7 +356,7 @@ def main():
                 if 0 <= px < rows and Si_array[px, py].existflag:
                     clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image) # 碰撞函数
                     if clearflag:
-                         [px, py] = 25  #真空
+                         s_image[px, py] = 25  #真空
                     break
         else:
             # 判定是否超出入射界限，后面需要改一下
