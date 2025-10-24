@@ -427,9 +427,6 @@ def main():
 
 
     plt.figure(figsize=(12, 8))
-
-    # 在plt.show()之前添加以下代码
-
     # 提取轮廓线：从上往下扫描
     contour_points = []
     for y in range(cols):  # 遍历每一列
@@ -440,24 +437,16 @@ def main():
     # 坐标转换
     transformed_points = []
     for x, y in contour_points:
-        new_x = y
-        new_y = rows - 1 - x
-        transformed_points.append((new_x, new_y))
-
-    if len(transformed_points) > 1:
-        # 按x坐标排序以便连接
-        sorted_points = sorted(transformed_points, key=lambda p: p[0])
-        sorted_array = np.array(sorted_points)
-        plt.plot(sorted_array[:, 0], sorted_array[:, 1], 'c-', linewidth=1, alpha=0.3, label='轮廓线')
+        new_x = rows - 1 -x
+        transformed_points.append((new_x, y))
 
     # 绘制轮廓点
     if transformed_points:
         points_array = np.array(transformed_points)
-        plt.plot(points_array[:, 0], points_array[:, 1], 'ro', markersize=1, alpha=0.6, label='轮廓点')
+        plt.plot(points_array[:, 0], points_array[:, 1], 'ro', markersize=1, alpha=0.6, label='point')
 
     # 添加图例
     plt.legend(loc='upper right')
-
     # 顺时针旋转90度（符合常规视角：x→横向，y→纵向）
     rotated_image = np.rot90(s_image, -1)
     plt.imshow(rotated_image, cmap='jet', vmin=0, vmax=100)
