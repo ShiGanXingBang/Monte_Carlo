@@ -1,5 +1,7 @@
-import numpy as np
 import matplotlib
+import numpy as np
+import cv2
+
 matplotlib.use('TkAgg')  # 或者 'Qt5Agg', 'Agg' 等
 import matplotlib.pyplot as plt
 import random
@@ -322,7 +324,7 @@ def main():
     }
 
     #模拟粒子入射
-    for cl in range(200000):
+    for cl in range(20000):
         # 考虑openCD对形貌影响
         emission_x = left_border + random.random() * (right_border - left_border)
         species = random.random() > (10/11)
@@ -424,24 +426,46 @@ def main():
                 #     s_image[px, py] = 60
 
 
-
     plt.figure(figsize=(12, 8))
+
+    # 在plt.show()之前添加以下代码
+
+    # 提取轮廓线：从上往下扫描
+    contour_points = []
+    for y in range(cols):  # 遍历每一列
+        for x in range(rows - 1):  # 从上到下扫描
+            if Si_array[x, y].existflag != Si_array[x + 1, y].existflag:
+                contour_points.append((x + 0.5, y))  # 记录边界点
+
+    # 坐标转换
+    transformed_points = []
+    for x, y in contour_points:
+        new_x = y
+        new_y = rows - 1 - x
+        transformed_points.append((new_x, new_y))
+
+    if len(transformed_points) > 1:
+        # 按x坐标排序以便连接
+        sorted_points = sorted(transformed_points, key=lambda p: p[0])
+        sorted_array = np.array(sorted_points)
+        plt.plot(sorted_array[:, 0], sorted_array[:, 1], 'c-', linewidth=1, alpha=0.3, label='轮廓线')
+
+    # 绘制轮廓点
+    if transformed_points:
+        points_array = np.array(transformed_points)
+        plt.plot(points_array[:, 0], points_array[:, 1], 'ro', markersize=1, alpha=0.6, label='轮廓点')
+
+    # 添加图例
+    plt.legend(loc='upper right')
+
     # 顺时针旋转90度（符合常规视角：x→横向，y→纵向）
     rotated_image = np.rot90(s_image, -1)
     plt.imshow(rotated_image, cmap='jet', vmin=0, vmax=100)
-    # plt.colorbar(label='表面状态（1=Si衬底，25=真空，40=光刻胶）')
-    # plt.title('Simulation of silicon wafer etching effect')
 
-    # 添加标注（根据旋转后的坐标）
-    # 左边掩膜（旋转后：x=0-299，y=400-699）
-    plt.text(500, 150, 'MASK', fontsize=14, color='white', fontweight='bold')
-    # 右边掩膜（旋转后：x=0-299，y=0-298）
-    plt.text(100, 150, 'MASK', fontsize=14, color='white', fontweight='bold')
-    # 衬底（旋转后：x≥300，y=0-699）
-    plt.text(280, 400, 'Substrate', fontsize=14, color='yellow', fontweight='bold')
+
 
     plt.axis('equal')
-    plt.axis('off')  # 隐藏坐标轴
+    plt.axis('on')  # 隐藏坐标轴
     plt.tight_layout()
     plt.show()
 
