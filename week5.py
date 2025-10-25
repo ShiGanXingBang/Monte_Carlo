@@ -1,11 +1,10 @@
 import matplotlib
 import numpy as np
-import cv2
-
-matplotlib.use('TkAgg')  # 或者 'Qt5Agg', 'Agg' 等
 import matplotlib.pyplot as plt
 import random
 import math
+
+matplotlib.use('TkAgg')  # 或者 'Qt5Agg', 'Agg' 等
 
 # Si_class = {'existflag': True, 'CountCl': 0} #字典
 #定义硅原子类属性
@@ -260,6 +259,10 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
 #     emission_k = 1.0 / math.tan(angle_rad)
 #     return emission_k
 
+
+#一些用以处理图像的函数
+# 基本样条插值函数
+
 def main():
     # 数据层面上初始化仿真界面
     vacuum = 50
@@ -427,12 +430,16 @@ def main():
 
 
     plt.figure(figsize=(12, 8))
-    # 提取轮廓线：从上往下扫描
+    # 提取轮廓线：从上往下扫描,再从左往右扫描
     contour_points = []
     for y in range(cols):  # 遍历每一列
         for x in range(rows - 1):  # 从上到下扫描
             if Si_array[x, y].existflag != Si_array[x + 1, y].existflag:
                 contour_points.append((x + 0.5, y))  # 记录边界点
+    for x in range(rows):  # 遍历每一列
+        for y in range(cols - 1):  # 从上到下扫描
+            if Si_array[x, y].existflag != Si_array[x, y + 1].existflag:
+                contour_points.append((x, y + 0.5))  # 记录边界点
 
     # 坐标转换
     transformed_points = []
