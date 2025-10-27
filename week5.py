@@ -113,8 +113,8 @@ def reflect_prob(theta, material):
         angle_else = min(0.6, 0.6 * (theta / math.pi) / 2)
         return base_prob + angle_else
     elif material == 'Si':
-        base_prob = 0.2
-        angle_else = min(0.5, 0.5 * (theta / math.pi) / 2)
+        base_prob = 0
+        angle_else = min(1, 1 * (theta - math.pi/3) / math.pi/6)
         return base_prob + angle_else
     else:
         return 0.0
@@ -271,7 +271,8 @@ def main():
     left_border = 300
     right_border = 400
     deep_border = 300
-    angle_img = abs(15)
+    # 掩膜角度fa
+    angle_img = abs(0)
     Si_array = np.empty(shape=(rows,cols), dtype=object)
     # 数据初始化整合到下面的图形初始化里面了，一块初始化
     for i in range(rows):
