@@ -271,7 +271,7 @@ def main():
     left_border = 300
     right_border = 400
     deep_border = 300
-    angle_img = abs(85)
+    angle_img = abs(15)
     Si_array = np.empty(shape=(rows,cols), dtype=object)
     # 数据初始化整合到下面的图形初始化里面了，一块初始化
     for i in range(rows):
@@ -327,7 +327,7 @@ def main():
     }
 
     #模拟粒子入射
-    for cl in range(20000):
+    for cl in range(200000):
         # 考虑openCD对形貌影响
         emission_x = left_border + random.random() * (right_border - left_border)
         species = random.random() > (10/11)
@@ -338,14 +338,21 @@ def main():
         # 粒子入射概率判定
         if species == 1:
             # 离子入射概率
-            sigma = 0.0704  # 对于R=100
+            sigma_degrees = 10
+            sigma = np.radians(sigma_degrees)  # 对于R=100
             angle_rad = random.gauss(0, sigma)
+            angle_rad = max(min(angle_rad, math.pi/2), -math.pi/2)
             abs_angle = abs(angle_rad)
+            # 测试入射角度范围，下面同理
+            # print("离子")
+            # print(angle_rad)
             emission_k = 1.0 / math.tan(angle_rad)
         else:
             #中性粒子入射概率
             angle_rad = math.asin(random.random() * 2 - 1)
             abs_angle = abs(angle_rad)
+            # print("中性")
+            # print(angle_rad)
             emission_k =  1.0 / math.tan(angle_rad)
         abs_k = np.abs(emission_k)
 
