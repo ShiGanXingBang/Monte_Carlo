@@ -203,7 +203,7 @@ def reflect_angle(Si_array, px, py, k, reflext_prob, direction = 1):
                 # 文献：Analytical modeling of silicon etch process in high density plasma
 
 
-                sigma_degrees = 10 #主要分布±5，10 els hardly equal zero
+                sigma_degrees = 4 #主要分布±5，10 els hardly equal zero
                 sigma = np.radians(sigma_degrees)   # 这个sigma值对应分布宽度，相当于文献中的 `n`
                 deviation_angle = random.gauss(0, sigma) # 生成一个随机偏转角
                 # 将偏转角加到由 reflect_k 计算出的角度上，得到最终方向
