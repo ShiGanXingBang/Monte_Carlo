@@ -168,40 +168,53 @@ def reflect_angle(Si_array, px, py, k, reflext_prob, direction = 1):
 
     if Si_array[px, py].existflag == True:
         count = 1 # 反射次数,只反射一次
-        if Si_array[px, py].reflect_count < count:
-            incident_angle = math.atan(abs(k))
-            if incident_angle > math.radians(10):
-                if random.random() < reflext_prob:
-                    # 计算入射向量,k是斜率
-                    # direction 是方向
-                    if abs(k) < 1e-9:  # 避免除零
-                        # 近似水平运动
-                        V_in = np.array([direction * float('inf'), direction])
-                    else:
-                        V_in = np.array([direction / k, direction])
+        incident_angle = math.atan(abs(k))
+        if Si_array[px, py].reflect_count < count and incident_angle > math.radians(10):
+            Si_array[px, py].reflect_count += 1
+            if random.random() < reflext_prob:
+                # 计算入射向量,k是斜率
+                # direction 是方向
+                if abs(k) < 1e-9:  # 避免除零
+                    # 近似水平运动
+                    V_in = np.array([direction * float('inf'), direction])
+                else:
+                    V_in = np.array([direction / k, direction])
 
-                    V_in = V_in / np.linalg.norm(V_in)
+                V_in = V_in / np.linalg.norm(V_in)
 
-                    # 获取法线向量和反射向量- 添加安全检查
-                    result = reflector_face(Si_array, px, py, n=4)
-                    if result is None or result[1] is None:
-                        # 无法获取法线，使用默认垂直法线
-                        N = np.array([0, 1])
-                    else:
-                        k_val, N = result
+                # 获取法线向量和反射向量- 添加安全检查
+                result = reflector_face(Si_array, px, py, n=4)
+                if result is None or result[1] is None:
+                    # 无法获取法线，使用默认垂直法线
+                    N = np.array([0, 1])
+                else:
+                    k_val, N = result
 
-                    # 计算反射向量
-                    V_out = V_in - 2 * (np.dot(V_in, N)) * N
+                # 计算反射向量
+                V_out = V_in - 2 * (np.dot(V_in, N)) * N
 
-                    # 计算反射斜率
-                    if abs(V_out[0]) < 1e-10:  # 避免除零错误
-                        reflect_k = float('inf')  # 垂直运动
-                    else:
-                        reflect_k = V_out[1] / V_out[0]
+                # 计算反射斜率
+                if abs(V_out[0]) < 1e-10:  # 避免除零错误
+                    reflect_k = float('inf')  # 垂直运动
+                else:
+                    reflect_k = V_out[1] / V_out[0]
 
-                    Si_array[px, py].reflect_count += 1
-                    is_reflect_flag = 1
-                    return is_reflect_flag, reflect_k, V_out
+                # 引入文献中的 cos^n θ 分布：用高斯随机扰动模拟反射方向的分散性
+                # 文献：Analytical modeling of silicon etch process in high density plasma
+
+
+                sigma_degrees = 10 #主要分布±5，10 els hardly equal zero
+                sigma = np.radians(sigma_degrees)   # 这个sigma值对应分布宽度，相当于文献中的 `n`
+                deviation_angle = random.gauss(0, sigma) # 生成一个随机偏转角
+                # 将偏转角加到由 reflect_k 计算出的角度上，得到最终方向
+                new_angle = math.atan(reflect_k) + deviation_angle
+                reflect_k = math.tan(new_angle)
+
+                # 更新状态
+                Si_array[px, py].reflect_count += 1
+                is_reflect_flag = 1
+                
+                return is_reflect_flag, reflect_k, V_out
 
         return is_reflect_flag, reflect_k, V_out
     else:
@@ -339,6 +352,7 @@ def main():
         # 粒子入射概率判定
         if species == 1:
             # 离子入射概率
+            # 方差
             sigma_degrees = 10
             sigma = np.radians(sigma_degrees)  # 对于R=100
             angle_rad = random.gauss(0, sigma)

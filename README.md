@@ -25,6 +25,11 @@
 ---
 该项目通过逐步开发的方式实现了复杂的粒子模拟功能，最新的 `week5.py` 文件进一步完善了反射和碰撞机制。
 
+## Study_Diary
+### 2025.10.27
+- [ ] github还有这个本地的推送和工作流有点混乱了，但是能用，晚上回来的时候再整理一下.本地的工作.工作分支可以通过按键的方式推送上去，但是无法通过git add .等方式提交暂存的programs.git push --set-upstream origin main从本地一个分支连接到已经由本地分支连接的远程项目时连接不上，晚上回来的时候anser一下this question.
+- [ ] vscode输入汉字的时候，部分汉字wufa直接输入例如这个wu，有时候重新dazi打字就好使了，查询原因，bing解決問題。
+
 ## Test
 `printf(Hello,world)`
 ~~删除线~~
