@@ -111,16 +111,21 @@ def reflect_prob(theta, material):
     if material == 'Hardmask':
         base_prob = 0.4
         angle_else = min(0.6, 0.6 * (theta / math.pi) / 2)
-        return base_prob + angle_else
+        # return base_prob + angle_else
+        # 测试
+        return 1.0
     elif material == 'Si':
         base_prob = 0
         angle_else = min(1, 1 * (theta - math.pi/3) / math.pi/6)
-        return base_prob + angle_else
+        # return base_prob + angle_else
+        # 测试
+        return 1.0
     else:
         return 0.0
 
+
 # 生成反射面
-def reflector_face(Si_array, center_i, center_j, n=4):
+def reflector_face(Si_array, center_i, center_j, n=4, left_border = 300):
     #初始化所需条件
     rows, cols = Si_array.shape
     # 边界限制
@@ -136,41 +141,114 @@ def reflector_face(Si_array, center_i, center_j, n=4):
             if not Si_array[i, j].existflag:
                 continue
             is_boundary = False
-            if (i > i_min and not Si_array[i - 1, j].existflag) or \
-                    (j > j_min and not Si_array[i, j - 1].existflag) or \
-                    (i < i_max and not Si_array[i + 1, j].existflag) or \
-                    (j < j_max and not Si_array[i, j + 1].existflag):
+            # 简化并加强边界判断逻辑
+            if (i > 0 and not Si_array[i - 1, j].existflag) or \
+               (j > 0 and not Si_array[i, j - 1].existflag) or \
+               (i < rows - 1 and not Si_array[i + 1, j].existflag) or \
+               (j < cols - 1 and not Si_array[i, j + 1].existflag):
                 is_boundary = True
             if is_boundary:
-                x_list = np.append(x_list, i + 0.5)
-                y_list = np.append(y_list, j + 0.5)
+                x_list = np.append(x_list, i)
+                y_list = np.append(y_list, j)
     x_list = np.array(x_list)
     y_list = np.array(y_list)
+    
     # 两个点以上才能生成反射面
     if len(x_list) < 2:
-        return 0, np.array([0, 1])  # 默认斜率为0，法线垂直向上
+        # 默认法线垂直向上（指向y轴负方向，即真空）
+        return 0, np.array([0, -1])
+
     # (A.T @ A) @ theta =  A.T @ y_list.T 公式表示
-    #求出k和法向量单位向量  theta = [a, b]
+    #求出k和法向量单位向量  theta = [b, k] # y = b + kx
     A = np.vstack((np.ones_like(x_list), x_list)).T
-    theta = np.linalg.lstsq(A, y_list, rcond=None)[0]  # 使用lstsq更稳定
+    try:
+        theta = np.linalg.lstsq(A, y_list, rcond=None)[0]
+    except np.linalg.LinAlgError:
+        if center_i <= left_border:
+            return 999, np.array([1, 0]) # 拟合失败则返回默认值
+        else:
+            return 999, np.array([-1, 0]) # 拟合失败则返回默认值
+
+
     k = theta[1]
-    n = np.array([-k ,1])
-    n_normal = n / np.linalg.norm(n)
+    n_vector = np.array([-k, 1])
+
+    # ==================== 代码修正处 START ====================
+    # 检查法向量方向是否正确（是否指向真空）
+    # 我们沿着法向量方向移动一个微小的距离，看落点是否在材料内部
+    # 如果落点仍在材料内，说明法向量指向了材料，需要反向
+    epsilon = 0.1
+    test_i = int(round(center_i + n_vector[0] * epsilon))
+    test_j = int(round(center_j + n_vector[1] * epsilon))
+
+    # 确保测试点在边界内
+    if 0 <= test_i < rows and 0 <= test_j < cols:
+        if Si_array[test_i, test_j].existflag:
+            n_vector = -n_vector  # 方向反了，进行翻转
+    # 如果真空在y轴正方向（下方），则需要这句判断
+    # else:
+    #     if n_vector[1] > 0:
+    #         n_vector = -n_vector
+
+    # ==================== 代码修正处 END ====================
+    
+    # 对最终正确的法向量进行归一化
+    norm = np.linalg.norm(n_vector)
+    if norm < 1e-9:
+        return 0, np.array([0, -1]) # 避免除以零
+
+    n_normal = n_vector / norm
     return k, n_normal
+# # 生成反射面
+# def reflector_face(Si_array, center_i, center_j, n=4):
+#     #初始化所需条件
+#     rows, cols = Si_array.shape
+#     # 边界限制
+#     i_min = max(0, center_i - n)
+#     j_min = max(0, center_j - n)
+#     i_max = min(rows - 1, center_i + n)
+#     j_max = min(cols - 1, center_j + n)
+#     x_list = []
+#     y_list = []
+#     # 检查是否为边界点
+#     for i in range(i_min, i_max + 1):
+#         for j in range(j_min, j_max + 1):
+#             if not Si_array[i, j].existflag:
+#                 continue
+#             is_boundary = False
+#             if (i > i_min and not Si_array[i - 1, j].existflag) or \
+#                     (j > j_min and not Si_array[i, j - 1].existflag) or \
+#                     (i < i_max and not Si_array[i + 1, j].existflag) or \
+#                     (j < j_max and not Si_array[i, j + 1].existflag):
+#                 is_boundary = True
+#             if is_boundary:
+#                 x_list = np.append(x_list, i + 0.5)
+#                 y_list = np.append(y_list, j + 0.5)
+#     x_list = np.array(x_list)
+#     y_list = np.array(y_list)
+#     # 两个点以上才能生成反射面
+#     if len(x_list) < 2:
+#         return 0, np.array([0, 1])  # 默认斜率为0，法线垂直向上
+#     # (A.T @ A) @ theta =  A.T @ y_list.T 公式表示
+#     #求出k和法向量单位向量  theta = [a, b]
+#     A = np.vstack((np.ones_like(x_list), x_list)).T
+#     theta = np.linalg.lstsq(A, y_list, rcond=None)[0]  # 使用lstsq更稳定
+#     k = theta[1]
+#     n = np.array([-k ,1])
+#     n_normal = n / np.linalg.norm(n)
+#     return k, n_normal
 
 
 
 # 生成反射角度
-def reflect_angle(Si_array, px, py, k, reflext_prob, direction = 1):
+def reflect_angle(Si_array, px, py, k, reflext_prob, direction = 1, left_border = 300):
     is_reflect_flag = 0
     reflect_k = k
     V_out = np.array([0, 0])
 
     if Si_array[px, py].existflag == True:
-        count = 1 # 反射次数,只反射一次
         incident_angle = math.atan(abs(k))
-        if Si_array[px, py].reflect_count < count and incident_angle > math.radians(10):
-            Si_array[px, py].reflect_count += 1
+        if incident_angle > math.radians(10):
             if random.random() < reflext_prob:
                 # 计算入射向量,k是斜率
                 # direction 是方向
@@ -186,7 +264,10 @@ def reflect_angle(Si_array, px, py, k, reflext_prob, direction = 1):
                 result = reflector_face(Si_array, px, py, n=4)
                 if result is None or result[1] is None:
                     # 无法获取法线，使用默认垂直法线
-                    N = np.array([0, 1])
+                    if px <= left_border:
+                        N = np.array([1, 0]) # 拟合失败则返回默认值
+                    else:
+                        N = np.array([-1, 0]) # 拟合失败则返回默认值
                 else:
                     k_val, N = result
 
@@ -198,20 +279,19 @@ def reflect_angle(Si_array, px, py, k, reflext_prob, direction = 1):
                     reflect_k = float('inf')  # 垂直运动
                 else:
                     reflect_k = V_out[1] / V_out[0]
+                    # print(V_out[1],V_out[0])
 
                 # 引入文献中的 cos^n θ 分布：用高斯随机扰动模拟反射方向的分散性
                 # 文献：Analytical modeling of silicon etch process in high density plasma
 
 
-                sigma_degrees = 4 #主要分布±5，10 els hardly equal zero
-                sigma = np.radians(sigma_degrees)   # 这个sigma值对应分布宽度，相当于文献中的 `n`
-                deviation_angle = random.gauss(0, sigma) # 生成一个随机偏转角
-                # 将偏转角加到由 reflect_k 计算出的角度上，得到最终方向
-                new_angle = math.atan(reflect_k) + deviation_angle
-                reflect_k = math.tan(new_angle)
-
+                # sigma_degrees = 4 #主要分布±5，10 els hardly equal zero
+                # sigma = np.radians(sigma_degrees)   # 这个sigma值对应分布宽度，相当于文献中的 `n`
+                # deviation_angle = random.gauss(0, sigma) # 生成一个随机偏转角
+                # # 将偏转角加到由 reflect_k 计算出的角度上，得到最终方向
+                # new_angle = math.atan(reflect_k) + deviation_angle
+                # reflect_k = math.tan(new_angle)
                 # 更新状态
-                Si_array[px, py].reflect_count += 1
                 is_reflect_flag = 1
                 
                 return is_reflect_flag, reflect_k, V_out
@@ -285,7 +365,7 @@ def main():
     right_border = 400
     deep_border = 300
     # 掩膜角度fa
-    angle_img = abs(0)
+    angle_img = abs(85)
     Si_array = np.empty(shape=(rows,cols), dtype=object)
     # 数据初始化整合到下面的图形初始化里面了，一块初始化
     for i in range(rows):
@@ -341,7 +421,7 @@ def main():
     }
 
     #模拟粒子入射
-    for cl in range(200000):
+    for cl in range(10):
         # 考虑openCD对形貌影响
         emission_x = left_border + random.random() * (right_border - left_border)
         species = random.random() > (10/11)
@@ -352,8 +432,8 @@ def main():
         # 粒子入射概率判定
         if species == 1:
             # 离子入射概率
-            # 方差
-            sigma_degrees = 10
+            # 方差 角度分布大部分在（-5,5）几乎所有都分布在（-10,10）
+            sigma_degrees = 4
             sigma = np.radians(sigma_degrees)  # 对于R=100
             angle_rad = random.gauss(0, sigma)
             angle_rad = max(min(angle_rad, math.pi/2), -math.pi/2)
@@ -398,19 +478,20 @@ def main():
             py = emission_y
         #运动轨迹追踪
         max_steps = 2000  # 防止无限循环
+        count = 1
         particle_direction = 1 # 初始方向向下
         for step in range(max_steps):
             # next_pos  = return_next(emission_x, 1, emission_k, px, py)
             # px, py = next_pos
             if not (0 <= px < rows  and 0 <= py < cols):
                 break
-
             if Si_array[px, py].existflag:
                 # 检查反射
                 ref_prob = reflect_prob(abs_angle, Si_array[px, py].material_type)
                 is_reflect, new_k, V_out= reflect_angle(Si_array, px, py, emission_k, ref_prob, particle_direction)
 
-                if is_reflect:
+                if is_reflect and Si_array[px, py].reflect_count < count:
+                    Si_array[px, py].reflect_count += 1
                     # 这里有问题，明天改。重新初始化入射点（根据反射向量的y分量）
                     particle_direction = 1 if V_out[1] >= 0 else -1
 
@@ -421,9 +502,9 @@ def main():
                     # 使用正确的方向参数调用return_next
                     next_pos = return_next(emission_x, emission_y, emission_k, px, py, s_image, particle_direction)
                     px, py = next_pos
-                    # 标记粒子轨迹
-                    # if px < rows and py < cols:
-                    #     s_image[px, py] = 60
+                    # 标记粒子轨迹,画线
+                    if px < rows and py < cols:
+                        s_image[px, py] = 60
                     continue  # 继续外部循环
                     # for step in range(max_steps):
                     #     next_pos = return_next(emission_x, emission_y, new_k, px, py, V_out[1])
@@ -446,9 +527,9 @@ def main():
             else:
                 next_pos = return_next(emission_x, emission_y, emission_k, px, py, s_image, particle_direction)
                 px, py = next_pos
-                # 标记粒子轨迹
-                # if px < rows and py < cols:
-                #     s_image[px, py] = 60
+                # 标记粒子轨迹，画线
+                if px < rows and py < cols:
+                    s_image[px, py] = 60
 
 
     plt.figure(figsize=(12, 8))
