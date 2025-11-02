@@ -18,8 +18,29 @@ class Si_Class:
 #运动方向判断
 def return_next(emission_x, emission_y, emission_k, px, py, s_image, direction=1):
     # 向下方运动
-    if direction >= 0:
-        #向右下运动
+    if direction >=                             next_pos = return_next(emission_x, emission_y, emission_k, px, py, s_image, particle_direction)
+                px, py = next_pos
+                # 标记粒子轨迹并更新显示
+                if px < rows and py < cols:
+                    s_image[px, py] = 60
+                    # 实时更新显示
+                    ax.clear()
+                    rotated_image = np.rot90(s_image, -1)
+                    ax.imshow(rotated_image, cmap='jet', vmin=0, vmax=100)
+                    ax.set_title(f'Particle {cl+1}, Step {step}')
+                    plt.pause(0.01)  # 暂停0.01秒观察标记粒子轨迹
+                if px < rows and py < cols:
+                    s_image[px, py] = 60
+                    
+                    # 实时更新显示
+                    rotated_image = np.rot90(s_image, -1)
+                    ax.imshow(rotated_image, cmap='jet', vmin=0, vmax=100)
+                    ax.set_title(f'Particle {cl+1}, Step {step}')
+                    plt.pause(0.1)  # 暂停一小段时间以便观察
+
+    # 最终绘图
+    plt.ioff()  # 关闭交互模式
+    plt.figure(figsize=(12, 8))       #向右下运动
         if emission_k > 0:
             y = emission_y + emission_k * ((px + 0.5) - emission_x)
             #向右运动
@@ -448,6 +469,10 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
 # 基本样条插值函数
 
 def main():
+    # 设置matplotlib为交互模式
+    plt.ion()
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
     # 数据层面上初始化仿真界面
     vacuum = 50
     rows = 700
@@ -511,7 +536,7 @@ def main():
         4: {'Cl*': 1.0, 'Cl+': 0.3}  # 俘获4个Cl
     }
 
-    # 创建图形窗口，用于实时显示
+    # 创建绘图窗口
     plt.ion()  # 打开交互模式
     fig, ax = plt.subplots(figsize=(12, 8))
     
@@ -521,7 +546,7 @@ def main():
         emission_x = left_border + random.random() * (right_border - left_border)
         species = random.random() > (10/11)
         
-        # 清除上一次的轨迹
+        # 清除上一次的轨迹显示
         ax.clear()
         # emission_theta = (random.random()-0.5) * math.pi
         # emission_k = np.tan(emission_theta)
@@ -631,14 +656,8 @@ def main():
                 # 标记粒子轨迹，画线
                 if px < rows and py < cols:
                     s_image[px, py] = 60
-                    # 实时显示更新
-                    rotated = np.rot90(s_image, -1)
-                    ax.imshow(rotated, cmap='jet', vmin=0, vmax=100)
-                    plt.pause(0.01)  # 暂停一小段时间以便观察
 
 
-    plt.ioff()  # 关闭交互模式
-    # 创建新图形用于最终显示
     plt.figure(figsize=(12, 8))
     # 提取轮廓线：从上往下扫描,再从左往右扫描
     contour_points = []
