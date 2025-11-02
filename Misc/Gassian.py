@@ -23,7 +23,7 @@ def generate_ion_angles(num_samples=1000, sigma_degrees=10):
     return angles_rad
 
 # 使用示例
-angles = generate_ion_angles(10000, sigma_degrees=4)
+angles = generate_ion_angles(10000, sigma_degrees=17)
 print(angles)
 # 可视化分布
 import matplotlib.pyplot as plt
