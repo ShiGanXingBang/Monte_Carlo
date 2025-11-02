@@ -119,7 +119,7 @@ def reflect_prob(theta, material):
         angle_else = min(1, 1 * (theta - math.pi/3) / math.pi/6)
         return base_prob + angle_else
         # 测试
-        # return 1.0
+        return 1.0
     else:
         return 0.0
 
@@ -500,7 +500,9 @@ def main():
                 s_image[x, y] = 40  # 光刻胶
                 Si_array[x, y].material_type = 'Hardmask'
                 Si_array[x, y].existflag = True
-
+    # 创建初始图形
+    fig = plt.figure(figsize=(12, 8))
+    ax = fig.add_subplot(111)
 
     # 顺序三：撞击时的反应概率
     reaction_probabilities = {
@@ -511,18 +513,13 @@ def main():
         4: {'Cl*': 1.0, 'Cl+': 0.3}  # 俘获4个Cl
     }
 
-    # 创建图形窗口，用于实时显示
-    plt.ion()  # 打开交互模式
-    fig, ax = plt.subplots(figsize=(12, 8))
-    
     #模拟粒子入射
-    for cl in range(10):
+    for cl in range(20):
         # 考虑openCD对形貌影响
-        emission_x = left_border + random.random() * (right_border - left_border)
+        # emission_x = left_border + random.random() * (right_border - left_border)
+        # 测试
+        emission_x = left_border + random.random() * (right_border - left_border) / 2
         species = random.random() > (10/11)
-        
-        # 清除上一次的轨迹
-        ax.clear()
         # emission_theta = (random.random()-0.5) * math.pi
         # emission_k = np.tan(emission_theta)
         #一种正态分布
@@ -578,7 +575,8 @@ def main():
             py = emission_y
         #运动轨迹追踪
         max_steps = 4000  # 防止无限循环
-        count = 1
+        ref_count = 0
+        count = 3
         particle_direction = 1 # 初始方向向下
         for step in range(max_steps):
             # next_pos  = return_next(emission_x, 1, emission_k, px, py)
@@ -590,15 +588,22 @@ def main():
                 ref_prob = reflect_prob(abs_angle, Si_array[px, py].material_type)
                 is_reflect, new_k, V_out= reflect_angle(Si_array, px, py, emission_k, ref_prob, particle_direction)
                 #反射次数计数
-                ref_count = 0
                 if is_reflect and ref_count < count:
-                    ref_count += 1
-                    # 这里有问题，明天改。重新初始化入射点（根据反射向量的y分量）
+                    print(f"反射次数: {ref_count + 1}, 最大允许次数: {count}")
+                    ref_count = ref_count + 1
+                    
+                    # 重新初始化入射点（根据反射向量的y分量）
                     particle_direction = 1 if V_out[1] >= 0 else -1
 
                     # 更新粒子状态
                     emission_k = new_k
                     emission_x, emission_y = px, py  # 从反射点继续运动
+
+                    # 显示当前状态
+                    ax.clear()
+                    rotated_image = np.rot90(s_image, -1)
+                    ax.imshow(rotated_image, cmap='jet', vmin=0, vmax=100)
+                    plt.pause(0.1)  # 暂停一小段时间以便观察
 
                     # 使用正确的方向参数调用return_next
                     next_pos = return_next(emission_x, emission_y, emission_k, px, py, s_image, particle_direction)
@@ -631,15 +636,10 @@ def main():
                 # 标记粒子轨迹，画线
                 if px < rows and py < cols:
                     s_image[px, py] = 60
-                    # 实时显示更新
-                    rotated = np.rot90(s_image, -1)
-                    ax.imshow(rotated, cmap='jet', vmin=0, vmax=100)
-                    plt.pause(0.01)  # 暂停一小段时间以便观察
 
 
-    plt.ioff()  # 关闭交互模式
-    # 创建新图形用于最终显示
-    plt.figure(figsize=(12, 8))
+
+
     # 提取轮廓线：从上往下扫描,再从左往右扫描
     contour_points = []
     for y in range(cols):  # 遍历每一列
