@@ -140,7 +140,7 @@ def main():
     left_border = 300
     right_border = 400
     deep_border = 300
-    angle_img = abs(85)
+    angle_img = abs(0)
 
     Si_array = np.empty(shape=(rows,cols), dtype=object)
     # 数据初始化整合到下面的图形初始化里面了，一块初始化
@@ -198,12 +198,15 @@ def main():
     }
 
     #模拟粒子入射
-    for cl in range(400000):
+    for cl in range(200000):
         # 考虑openCD对形貌影响
         emission_x = left_border + random.random() * (right_border - left_border)
-        species = random.random() > (10/11)
+        # 通量比
+        species = random.random() > (5/6)
         # emission_theta = (random.random()-0.5) * math.pi
         # emission_k = np.tan(emission_theta)
+        # abs_angle = abs(emission_theta)
+
         #一种正态分布
 
         # 粒子入射概率判定
@@ -273,14 +276,14 @@ def main():
 
     # 添加标注（根据旋转后的坐标）
     # 左边掩膜（旋转后：x=0-299，y=400-699）
-    plt.text(500, 150, 'MASK', fontsize=14, color='white', fontweight='bold')
-    # 右边掩膜（旋转后：x=0-299，y=0-298）
-    plt.text(100, 150, 'MASK', fontsize=14, color='white', fontweight='bold')
+    # plt.text(500, 150, 'MASK', fontsize=14, color='white', fontweight='bold')
+    # # 右边掩膜（旋转后：x=0-299，y=0-298）
+    # plt.text(100, 150, 'MASK', fontsize=14, color='white', fontweight='bold')
     # 衬底（旋转后：x≥300，y=0-699）
-    plt.text(280, 400, 'Substrate', fontsize=14, color='yellow', fontweight='bold')
+    # plt.text(280, 400, 'Substrate', fontsize=14, color='yellow', fontweight='bold')
 
     plt.axis('equal')
-    plt.axis('off')  # 隐藏坐标轴
+    plt.axis('on')  # 隐藏坐标轴
     plt.tight_layout()
     plt.show()
 

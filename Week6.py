@@ -149,13 +149,13 @@ def reflect_prob(theta, material):
         angle_else = min(1, 1 * (theta - math.pi/3) / math.pi/6)
         return base_prob + angle_else
         # 测试
-        return 1.0
+        # return 1.0
     else:
         return 0.0
 
 
 # 生成反射面
-def reflector_face(Si_array, center_i, center_j, n=4, left_border = 300):
+def reflector_face(Si_array, center_i, center_j, n=4, left_border = 350):
     #初始化所需条件
     rows, cols = Si_array.shape
     # 边界限制
@@ -362,7 +362,7 @@ def reflector_face(Si_array, center_i, center_j, n=4, left_border = 300):
 
 
 # 生成反射角度
-def reflect_angle(Si_array, px, py, k, reflext_prob, direction = 1, left_border = 300):
+def reflect_angle(Si_array, px, py, k, reflext_prob, direction = 1, left_border = 350):
     is_reflect_flag = 0
     reflect_k = k
     V_out = np.array([0, 0])
@@ -591,7 +591,7 @@ def main():
     }
 
     #模拟粒子入射
-    for cl in range(400000):
+    for cl in range(200000):
         # 考虑openCD对形貌影响
         emission_x = left_border + random.random() * (right_border - left_border)
         # 测试入射角度45度的时候改了一下入射范围
