@@ -3,6 +3,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import random
 import math
+from sklearn.cluster import DBSCAN
+from scipy.signal import savgol_filter
+
+import random
+import math
+from sklearn.cluster import DBSCAN
+from scipy.signal import savgol_filter
+from scipy.interpolate import interp1d
+import numpy as np
 
 matplotlib.use('TkAgg')  # 或者 'Qt5Agg', 'Agg' 等
 
@@ -654,7 +663,7 @@ def main():
         #运动轨迹追踪
         max_steps = 4000  # 防止无限循环
         ref_count = 0
-        count = 2
+        count = 3
         particle_direction = 1 # 初始方向向下
         for step in range(max_steps):
             # next_pos  = return_next(emission_x, 1, emission_k, px, py)
@@ -718,33 +727,221 @@ def main():
 
 
 
-    # 提取轮廓线：从上往下扫描,再从左往右扫描
+    # 提取轮廓线并使用极坐标表示
     contour_points = []
-    for y in range(cols):  # 遍历每一列
-        for x in range(rows - 1):  # 从上到下扫描
+    # 先找到中心点（作为极坐标系的原点）
+    center_x = (left_border + right_border) / 2
+    center_y = vacuum + (cols - vacuum) / 2
+    
+    # 从四个方向扫描以获得更完整的轮廓
+    # 从上到下扫描
+    for y in range(cols):
+        for x in range(rows - 1):
             if Si_array[x, y].existflag != Si_array[x + 1, y].existflag:
-                contour_points.append((x + 0.5, y))  # 记录边界点
-    for x in range(rows):  # 遍历每一列
-        for y in range(cols - 1):  # 从上到下扫描
+                contour_points.append((x + 0.5, y))
+    
+    # 从左到右扫描
+    for x in range(rows):
+        for y in range(cols - 1):
             if Si_array[x, y].existflag != Si_array[x, y + 1].existflag:
-                contour_points.append((x, y + 0.5))  # 记录边界点
+                contour_points.append((x, y + 0.5))
 
-    # 坐标转换
-    transformed_points = []
+    # 转换为极坐标
+    polar_points = []
     for x, y in contour_points:
-        new_x = rows - 1 -x
-        transformed_points.append((new_x, y))
+        # 转换坐标系（使y轴向上为正）
+        new_x = rows - 1 - x
+        # 计算相对于中心点的偏移
+        dx = new_x - (rows - 1 - center_x)
+        dy = y - center_y
+        # 计算极坐标 (r, theta)
+        r = np.sqrt(dx*dx + dy*dy)
+        theta = np.arctan2(dy, dx)
+        polar_points.append((theta, r))
 
-    # 绘制轮廓点
+    # 将极坐标点转换为numpy数组并按theta排序
+    polar_array = np.array(polar_points)
+    sort_idx = np.argsort(polar_array[:, 0])
+    polar_array = polar_array[sort_idx]
+    
+    # 处理周期性（确保theta连续）
+    # 将theta范围从[-pi, pi]调整到[0, 2pi]
+    polar_array[:, 0] = np.unwrap(polar_array[:, 0])
+    
+    # 将处理后的极坐标点转回笛卡尔坐标
+    transformed_points = []
+    for theta, r in polar_array:
+        x = r * np.cos(theta) + (rows - 1 - center_x)
+        y = r * np.sin(theta) + center_y
+        transformed_points.append((x, y))
+    
     if transformed_points:
+        # 转换为numpy数组便于处理
         points_array = np.array(transformed_points)
-        plt.plot(points_array[:, 0], points_array[:, 1], 'ro', markersize=1, alpha=0.6, label='point')
+        
+        def smooth_and_interpolate_polar(polar_points, window=15):
+            """在极坐标系下进行平滑和插值，加强处理周期性和连续性"""
+            if len(polar_points) < 2:
+                return polar_points
 
-    # 添加图例
-    plt.legend(loc='upper right')
-    # 顺时针旋转90度（符合常规视角：x→横向，y→纵向）
-    rotated_image = np.rot90(s_image, -1)
-    plt.imshow(rotated_image, cmap='jet', vmin=0, vmax=100)
+            # 确保窗口大小合适
+            window = min(window, len(polar_points) - 1)
+            if window % 2 == 0:
+                window -= 1
+            if window < 3:
+                window = 3
+
+            # 处理极坐标的周期性
+            thetas = polar_points[:, 0]
+            rs = polar_points[:, 1]
+            
+            # 处理极坐标的周期性：确保角度是连续的
+            # 复制部分点以处理周期性边界
+            extra_points = 0.2  # 额外添加20%的周期点
+            delta_theta = 2 * np.pi * extra_points
+            
+            # 在开始处添加末尾的点
+            mask_end = thetas > thetas[-1] - delta_theta
+            thetas_ext_start = thetas[mask_end] - 2*np.pi
+            rs_ext_start = rs[mask_end]
+            
+            # 在末尾处添加开始的点
+            mask_start = thetas < thetas[0] + delta_theta
+            thetas_ext_end = thetas[mask_start] + 2*np.pi
+            rs_ext_end = rs[mask_start]
+            
+            # 组合所有点
+            thetas_ext = np.concatenate([thetas_ext_start, thetas, thetas_ext_end])
+            rs_ext = np.concatenate([rs_ext_start, rs, rs_ext_end])
+            
+            # 使用Savitzky-Golay滤波器平滑r值
+            if len(rs_ext) >= window:
+                rs_smooth = savgol_filter(rs_ext, window, 2)
+            else:
+                rs_smooth = rs_ext
+
+            # 生成更密集的θ点，确保覆盖完整的周期
+            theta_dense = np.linspace(thetas_ext[0], thetas_ext[-1], 
+                                    num=max(len(thetas_ext)*5, 500))  # 增加插值点数量
+            
+            # 使用周期性样条插值
+            try:
+                # 创建周期性的三次样条插值
+                f = interp1d(thetas_ext, rs_smooth, kind='cubic', bounds_error=False)
+            except ValueError:
+                # 如果样本点太少，使用线性插值
+                f = interp1d(thetas_ext, rs_smooth, kind='linear', bounds_error=False)
+            
+            rs_dense = f(theta_dense)
+            
+            # 移除可能的nan值和周期性重复部分
+            valid_mask = ~np.isnan(rs_dense)
+            theta_dense = theta_dense[valid_mask]
+            rs_dense = rs_dense[valid_mask]
+            
+            # 只保留原始角度范围内的点
+            mask_original = (theta_dense >= thetas.min()) & (theta_dense <= thetas.max())
+            theta_dense = theta_dense[mask_original]
+            rs_dense = rs_dense[mask_original]
+            
+            # 转换回笛卡尔坐标
+            x_smooth = rs_dense * np.cos(theta_dense) + (rows - 1 - center_x)
+            y_smooth = rs_dense * np.sin(theta_dense) + center_y
+            
+            return np.column_stack((x_smooth, y_smooth))
+        
+        # 创建两个子图进行对比
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
+        
+        # 旋转图像
+        rotated_image = np.rot90(s_image, -1)
+        
+        # 左图：显示原始轮廓
+        ax1.set_title('原始轮廓')
+        ax1.imshow(rotated_image, cmap='jet', vmin=0, vmax=100)
+        ax1.plot(points_array[:, 0], points_array[:, 1], 'ro', markersize=1, alpha=0.6, label='原始轮廓点')
+        ax1.legend(loc='upper right')
+        ax1.axis('equal')
+        
+        # 使用DBSCAN去除离群点（毛刺）
+        clustering = DBSCAN(eps=3.0, min_samples=2).fit(points_array)
+        labels = clustering.labels_
+        
+        # 保留非噪声点
+        mask = labels != -1
+        filtered_points = points_array[mask]
+
+        # 转换到极坐标系进行处理
+        # 使用刻蚀区域的几何中心作为极坐标原点
+        # 找到硅区域的边界
+        min_x = np.min(filtered_points[:, 0])
+        max_x = np.max(filtered_points[:, 0])
+        min_y = np.min(filtered_points[:, 1])
+        max_y = np.max(filtered_points[:, 1])
+        
+        # 使用刻蚀区域的中心作为极坐标原点
+        center_x = (min_x + max_x) / 2
+        center_y = (min_y + max_y) / 2
+        
+        # 转换到极坐标
+        dx = filtered_points[:, 0] - center_x
+        dy = filtered_points[:, 1] - center_y
+        r = np.sqrt(dx**2 + dy**2)
+        theta = np.arctan2(dy, dx)
+        
+        # 将角度范围规范化到[-π, π]
+        theta = np.unwrap(theta)
+        
+        # 将点转换为极坐标形式并按theta排序
+        polar_points = np.column_stack((theta, r))
+        sort_idx = np.argsort(polar_points[:, 0])
+        polar_points = polar_points[sort_idx]
+        
+        # 检查并处理θ的不连续点
+        theta_diff = np.diff(polar_points[:, 0])
+        large_gaps = np.where(np.abs(theta_diff) > 0.5)[0]  # 检测较大的角度间隔
+        
+        if len(large_gaps) > 0:
+            # 在大间隔处添加过渡点
+            new_points = []
+            for gap_idx in large_gaps:
+                theta1 = polar_points[gap_idx, 0]
+                theta2 = polar_points[gap_idx + 1, 0]
+                r1 = polar_points[gap_idx, 1]
+                r2 = polar_points[gap_idx + 1, 1]
+                
+                # 在间隔处添加过渡点
+                num_transition = 5  # 添加的过渡点数量
+                transition_thetas = np.linspace(theta1, theta2, num_transition + 2)[1:-1]
+                transition_rs = np.linspace(r1, r2, num_transition + 2)[1:-1]
+                
+                new_points.extend([(t, r) for t, r in zip(transition_thetas, transition_rs)])
+            
+            # 将新点添加到原有点集中
+            if new_points:
+                additional_points = np.array(new_points)
+                polar_points = np.vstack([polar_points, additional_points])
+                # 重新排序
+                sort_idx = np.argsort(polar_points[:, 0])
+                polar_points = polar_points[sort_idx]
+        
+        # 设置窗口大小
+        window = 21  # 使用更大的窗口获得更平滑的效果
+        
+        # 对极坐标系下的点进行平滑处理
+        smoothed_points = smooth_and_interpolate_polar(polar_points, window=window)
+        
+        # 右图：显示平滑处理后的轮廓
+        ax2.set_title('平滑处理后的轮廓')
+        ax2.imshow(rotated_image, cmap='jet', vmin=0, vmax=100)
+        
+        # 绘制平滑后的轮廓
+        ax2.plot(smoothed_points[:, 0], smoothed_points[:, 1], '-', linewidth=0.8, color='red', alpha=0.8, label='平滑轮廓')
+        
+        ax2.legend(loc='upper right')
+        ax2.axis('equal')
+        
+        plt.tight_layout()
 
 
 
