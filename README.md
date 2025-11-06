@@ -96,6 +96,9 @@
 - 明天就能见nn了，开心~昨天参考徐老师的github做了一个自己的github的profile，还挺好看的。
 ### 2025.11.4
 今天跟nn吵架了
+### 2025.11.6
+今天做ppt来的
+
 ## Test
 ` printf(Hello,world)`
  ~~删除线~~
