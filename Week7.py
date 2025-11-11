@@ -600,7 +600,7 @@ def main():
     }
 
     #模拟粒子入射
-    for cl in range(200000):
+    for cl in range(2000):
         # 考虑openCD对形貌影响
         emission_x = left_border + random.random() * (right_border - left_border)
         # 测试入射角度45度的时候改了一下入射范围
@@ -780,7 +780,7 @@ def main():
         points_array = np.array(transformed_points)
         
         def smooth_and_interpolate_polar(polar_points, window=15):
-            """在极坐标系下进行平滑和插值，加强处理周期性和连续性"""
+            """在极坐标系下进行平滑和插值，正确处理周期性边界"""
             if len(polar_points) < 2:
                 return polar_points
 
@@ -791,58 +791,55 @@ def main():
             if window < 3:
                 window = 3
 
-            # 处理极坐标的周期性
             thetas = polar_points[:, 0]
             rs = polar_points[:, 1]
             
-            # 处理极坐标的周期性：确保角度是连续的
-            # 复制部分点以处理周期性边界
-            extra_points = 0.2  # 额外添加20%的周期点
-            delta_theta = 2 * np.pi * extra_points
+            # 检测是否跨越±π边界
+            theta_diff = np.diff(thetas)
+            boundary_crossings = np.where(np.abs(theta_diff) > np.pi)[0]
             
-            # 在开始处添加末尾的点
-            mask_end = thetas > thetas[-1] - delta_theta
-            thetas_ext_start = thetas[mask_end] - 2*np.pi
-            rs_ext_start = rs[mask_end]
-            
-            # 在末尾处添加开始的点
-            mask_start = thetas < thetas[0] + delta_theta
-            thetas_ext_end = thetas[mask_start] + 2*np.pi
-            rs_ext_end = rs[mask_start]
-            
-            # 组合所有点
-            thetas_ext = np.concatenate([thetas_ext_start, thetas, thetas_ext_end])
-            rs_ext = np.concatenate([rs_ext_start, rs, rs_ext_end])
+            # 如果有边界跨越，将角度调整为连续的
+            if len(boundary_crossings) > 0:
+                # 调整角度使其连续（展开周期）
+                thetas_unwrapped = np.copy(thetas)
+                for i in range(1, len(thetas)):
+                    if np.abs(thetas_unwrapped[i] - thetas_unwrapped[i-1]) > np.pi:
+                        # 检测到周期跨越
+                        if thetas_unwrapped[i] > thetas_unwrapped[i-1]:
+                            # 从正向跨越到负向，减去2π
+                            thetas_unwrapped[i:] -= 2*np.pi
+                        else:
+                            # 从负向跨越到正向，加上2π
+                            thetas_unwrapped[i:] += 2*np.pi
+                thetas = thetas_unwrapped
             
             # 使用Savitzky-Golay滤波器平滑r值
-            if len(rs_ext) >= window:
-                rs_smooth = savgol_filter(rs_ext, window, 2)
+            if len(rs) >= window:
+                rs_smooth = savgol_filter(rs, window, 2)
             else:
-                rs_smooth = rs_ext
+                rs_smooth = rs
 
-            # 生成更密集的θ点，确保覆盖完整的周期
-            theta_dense = np.linspace(thetas_ext[0], thetas_ext[-1], 
-                                    num=max(len(thetas_ext)*5, 500))  # 增加插值点数量
+            # 生成更密集的θ点
+            theta_dense = np.linspace(thetas.min(), thetas.max(), 
+                                    num=max(len(thetas)*5, 500))
             
-            # 使用周期性样条插值
+            # 使用三次样条插值
             try:
-                # 创建周期性的三次样条插值
-                f = interp1d(thetas_ext, rs_smooth, kind='cubic', bounds_error=False)
-            except ValueError:
+                f = interp1d(thetas, rs_smooth, kind='cubic', bounds_error=False, fill_value='extrapolate')
+            except (ValueError, TypeError):
                 # 如果样本点太少，使用线性插值
-                f = interp1d(thetas_ext, rs_smooth, kind='linear', bounds_error=False)
+                f = interp1d(thetas, rs_smooth, kind='linear', bounds_error=False, fill_value='extrapolate')
             
             rs_dense = f(theta_dense)
             
-            # 移除可能的nan值和周期性重复部分
-            valid_mask = ~np.isnan(rs_dense)
+            # 移除nan和inf值
+            valid_mask = np.isfinite(rs_dense) & (rs_dense > 0)
             theta_dense = theta_dense[valid_mask]
             rs_dense = rs_dense[valid_mask]
             
-            # 只保留原始角度范围内的点
-            mask_original = (theta_dense >= thetas.min()) & (theta_dense <= thetas.max())
-            theta_dense = theta_dense[mask_original]
-            rs_dense = rs_dense[mask_original]
+            # 如果有边界跨越，将角度转换回[-π, π]范围
+            if len(boundary_crossings) > 0:
+                theta_dense = np.angle(np.exp(1j * theta_dense))
             
             # 转换回笛卡尔坐标
             x_smooth = rs_dense * np.cos(theta_dense) + (rows - 1 - center_x)
@@ -873,7 +870,6 @@ def main():
 
         # 转换到极坐标系进行处理
         # 使用刻蚀区域的几何中心作为极坐标原点
-        # 找到硅区域的边界
         min_x = np.min(filtered_points[:, 0])
         max_x = np.max(filtered_points[:, 0])
         min_y = np.min(filtered_points[:, 1])
@@ -889,41 +885,33 @@ def main():
         r = np.sqrt(dx**2 + dy**2)
         theta = np.arctan2(dy, dx)
         
-        # 将角度范围规范化到[-π, π]
-        theta = np.unwrap(theta)
-        
         # 将点转换为极坐标形式并按theta排序
         polar_points = np.column_stack((theta, r))
         sort_idx = np.argsort(polar_points[:, 0])
         polar_points = polar_points[sort_idx]
         
-        # 检查并处理θ的不连续点
-        theta_diff = np.diff(polar_points[:, 0])
-        large_gaps = np.where(np.abs(theta_diff) > 0.5)[0]  # 检测较大的角度间隔
+        # 检测是否有周期性边界跨越（±π处的跳变）
+        theta_vals = polar_points[:, 0]
+        theta_diff = np.diff(theta_vals)
+        boundary_mask = np.abs(theta_diff) > np.pi  # 检测大于π的跳变
         
-        if len(large_gaps) > 0:
-            # 在大间隔处添加过渡点
-            new_points = []
-            for gap_idx in large_gaps:
-                theta1 = polar_points[gap_idx, 0]
-                theta2 = polar_points[gap_idx + 1, 0]
-                r1 = polar_points[gap_idx, 1]
-                r2 = polar_points[gap_idx + 1, 1]
-                
-                # 在间隔处添加过渡点
-                num_transition = 5  # 添加的过渡点数量
-                transition_thetas = np.linspace(theta1, theta2, num_transition + 2)[1:-1]
-                transition_rs = np.linspace(r1, r2, num_transition + 2)[1:-1]
-                
-                new_points.extend([(t, r) for t, r in zip(transition_thetas, transition_rs)])
+        # 如果检测到边界跳变，需要特殊处理
+        if np.any(boundary_mask):
+            # 找到所有的边界跳变位置
+            boundary_indices = np.where(boundary_mask)[0]
             
-            # 将新点添加到原有点集中
-            if new_points:
-                additional_points = np.array(new_points)
-                polar_points = np.vstack([polar_points, additional_points])
-                # 重新排序
-                sort_idx = np.argsort(polar_points[:, 0])
-                polar_points = polar_points[sort_idx]
+            # 将角度展开为连续的值（处理周期性）
+            theta_unwrapped = np.copy(theta_vals)
+            for idx in boundary_indices:
+                if theta_unwrapped[idx + 1] - theta_unwrapped[idx] > np.pi:
+                    # 从大角度跳到小角度，减去2π
+                    theta_unwrapped[idx + 1:] -= 2 * np.pi
+                else:
+                    # 从小角度跳到大角度，加上2π
+                    theta_unwrapped[idx + 1:] += 2 * np.pi
+            
+            # 更新polar_points中的theta值
+            polar_points[:, 0] = theta_unwrapped
         
         # 设置窗口大小
         window = 21  # 使用更大的窗口获得更平滑的效果

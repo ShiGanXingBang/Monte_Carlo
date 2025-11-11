@@ -591,9 +591,13 @@ def main():
     }
 
     #模拟粒子入射
-    for cl in range(200000):
+    for cl in range(20):
         # 考虑openCD对形貌影响
+        #粒子初始位置
         emission_x = left_border + random.random() * (right_border - left_border)
+        emission_y_Ion = 1
+        emission_y_neutral = vacuum - 1
+        
         # 测试入射角度45度的时候改了一下入射范围
         # emission_x = left_border + random.random() * (right_border - left_border) / 2
         species = random.random() > (10/11)
@@ -601,6 +605,7 @@ def main():
         # emission_k = np.tan(emission_theta)
         #一种正态分布
 
+                
         # 粒子入射概率判定
         if species == 1:
             # 离子入射概率
@@ -616,6 +621,7 @@ def main():
             # print("离子")
             # print(angle_rad)
             emission_k = 1.0 / math.tan(angle_rad)
+            emission_y = emission_y_Ion
         else:
             #中性粒子入射概率
             angle_rad = math.asin(random.random() * 2 - 1)
@@ -624,10 +630,10 @@ def main():
             # print("中性")
             # print(angle_rad)
             emission_k =  1.0 / math.tan(angle_rad)
+            emission_y =  emission_y_neutral
+
         abs_k = np.abs(emission_k)
 
-        #粒子初始位置
-        emission_y = 1
 
         #粒子初始角度确认，处理不同斜率情况
         if abs_k <= 0.1:#近似水平
@@ -651,6 +657,8 @@ def main():
             # py = deep_border
             px = int(emission_x)
             py = emission_y
+                
+            
         #运动轨迹追踪
         max_steps = 4000  # 防止无限循环
         ref_count = 0
@@ -687,8 +695,8 @@ def main():
                     next_pos = return_next(emission_x, emission_y, emission_k, px, py, is_reflect, particle_direction)
                     px, py = next_pos
                     # 标记粒子轨迹,画线
-                    # if px < rows and py < cols:
-                    #     s_image[px, py] = 60
+                    if px < rows and py < cols:
+                        s_image[px, py] = 60
                     continue  # 继续外部循环
                     # for step in range(max_steps):
                     #     next_pos = return_next(emission_x, emission_y, new_k, px, py, V_out[1])
@@ -712,8 +720,8 @@ def main():
                 next_pos = return_next(emission_x, emission_y, emission_k, px, py, 0, particle_direction)
                 px, py = next_pos
                 # 标记粒子轨迹，画线
-                # if px < rows and py < cols:
-                #     s_image[px, py] = 60
+                if px < rows and py < cols:
+                    s_image[px, py] = 60
 
 
 
