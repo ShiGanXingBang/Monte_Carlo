@@ -514,7 +514,7 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
     return clearflag
 
 # 加速函数：使用大步长+回退+小步长策略快速到达材料表面附近
-def find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_array, rows, cols):
+def find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_array, rows, cols, s_image):
     """
     使用大步长跳跃快速逼近材料表面，检测到碰撞后回退，最后用小步长逐行精确定位
     
@@ -542,7 +542,10 @@ def find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_ar
             test_px = int(round(emission_x + (test_py - emission_y) / emission_k))
         else:
             test_px = int(round(emission_x))
-        
+        # 画线
+        if test_px < rows and test_py < cols :
+            s_image[test_px, test_py] = 60
+
         # 边界检查
         if not (0 <= test_px < rows and 0 <= test_py < cols):
             # 超出边界，返回 None
@@ -793,7 +796,7 @@ def main():
                     break
             else:
                 # 使用加速函数快速到达材料表面附近
-                result = find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_array, rows, cols)
+                result = find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_array, rows, cols, s_image)
                 if result is not None:
                     px, py = result
                     # 标记粒子轨迹,画线
