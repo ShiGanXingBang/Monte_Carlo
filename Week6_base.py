@@ -513,79 +513,6 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
     Si_array[px, py].existflag = not clearflag
     return clearflag
 
-# 加速函数：使用大步长+回退+小步长策略快速到达材料表面附近
-def find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_array, rows, cols):
-    """
-    使用大步长跳跃快速逼近材料表面，检测到碰撞后回退，最后用小步长逐行精确定位
-    
-    参数：
-        emission_x, emission_y: 粒子发射点坐标
-        emission_k: 粒子运动斜率
-        px, py: 当前粒子位置
-        Si_array: 材料数组
-        rows, cols: 网格大小
-    
-    返回：
-        [px, py] 如果找到材料，或 None 如果未找到
-    """
-    big_step = 50  # 大步长大小
-    rows, cols = Si_array.shape
-    
-    # 第一阶段：粗查 - 用大步长快速跳跃
-    current_py = py
-    while current_py < cols - 1:
-        # 计算下一个检测点（大步长）
-        test_py = min(current_py + big_step, cols - 1)
-        
-        # 根据直线方程计算对应的 px
-        if abs(emission_k) > 1e-9:  # 避免除零
-            test_px = int(round(emission_x + (test_py - emission_y) / emission_k))
-        else:
-            test_px = int(round(emission_x))
-        
-        # 边界检查
-        if not (0 <= test_px < rows and 0 <= test_py < cols):
-            # 超出边界，返回 None
-            return None
-        
-        # 检查这个点是否有材料
-        if Si_array[test_px, test_py].existflag:
-            # 检测到材料！进行回退和精查
-            break
-        
-        current_py = test_py
-    
-    # 检查是否到达底部仍未找到材料
-    if current_py >= cols - 1:
-        return None
-    
-    # 第二阶段：回退到前一个安全位置
-    current_py = max(current_py - big_step, py)
-    
-    # 第三阶段：精查 - 用小步长逐行检查，找到第一个有材料的点
-    while current_py < cols:
-        # 根据直线方程计算当前 py 对应的 px
-        if abs(emission_k) > 1e-9:
-            current_px = int(round(emission_x + (current_py - emission_y) / emission_k))
-        else:
-            current_px = int(round(emission_x))
-        
-        # 边界检查
-        if not (0 <= current_px < rows and 0 <= current_py < cols):
-            # 超出边界
-            current_py += 1
-            continue
-        
-        # 检查是否有材料
-        if Si_array[current_px, current_py].existflag:
-            # 找到第一个有材料的点
-            return [current_px, current_py]
-        
-        current_py += 1
-    
-    # 未找到材料
-    return None
-
 # 最简单的实现方式：
 # def simple_angle_emission():
 #     """最简单的角度生成方案"""
@@ -792,16 +719,11 @@ def main():
                         s_image[px, py] = 25
                     break
             else:
-                # 使用加速函数快速到达材料表面附近
-                result = find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_array, rows, cols)
-                if result is not None:
-                    px, py = result
-                    # 标记粒子轨迹,画线
-                    # if px < rows and py < cols:
-                    #     s_image[px, py] = 60
-                else:
-                    # 如果未找到材料，粒子逃逸
-                    break
+                next_pos = return_next(emission_x, emission_y, emission_k, px, py, 0, particle_direction)
+                px, py = next_pos
+                # 标记粒子轨迹，画线
+                # if px < rows and py < cols:
+                #     s_image[px, py] = 60
 
 
 
