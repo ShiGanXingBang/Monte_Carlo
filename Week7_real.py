@@ -17,35 +17,74 @@ class Si_Class:
         self.reflect_count = reflect_count
 
 #运动方向判断
-def return_next(emission_x, emission_y, emission_k, px, py, direction=1):
-    if direction >= 0:
+def return_next(emission_x, emission_y, emission_k, px, py, is_reflect, direction=1):
+    if is_reflect:
+        if direction >= 0:
+                #向右下运动
+                if emission_k > 0:
+                        return [px + 1, py+1]
+                #向左下运动
+                elif emission_k < 0:
+                        return [px - 1, py + 1]
+                #垂直向下 k=0
+                else:
+                    return [px, py + 1]
+        else:
+            if emission_k > 0:
+                y = emission_y + emission_k * ((px - 0.5) - emission_x)
+                #向左上运动
+                if y <= py - 0.5:
+                    return [px, py - 1]
+                else:
+                    return [px - 1, py]
+            #向右上运动
+            elif emission_k < 0:
+                y = emission_y + emission_k * ((px + 0.5) - emission_x)
+                if y <= py - 0.5:
+                    return [px, py - 1]
+                else:
+                    return [px + 1, py]
+            #垂直向下 k=0
+            else:
+                return [px, py - 1]
+    else:
+        if direction >= 0:
             #向右下运动
             if emission_k > 0:
-                    return [px + 1, py+1]
+                y = emission_y + emission_k * ((px + 0.5) - emission_x)
+                #向右运动
+                if y <= py +0.5:
+                    return [px + 1, py]
+                else:
+                    return [px, py + 1]
             #向左下运动
             elif emission_k < 0:
-                    return [px - 1, py + 1]
+                y = emission_y + emission_k * ((px - 0.5) - emission_x)
+                if y <= py + 0.5:
+                    return [px - 1, py]
+                else:
+                    return [px, py + 1]
             #垂直向下 k=0
             else:
                 return [px, py + 1]
-    else:
-        if emission_k > 0:
-            y = emission_y + emission_k * ((px - 0.5) - emission_x)
-            #向左上运动
-            if y <= py - 0.5:
-                return [px, py - 1]
-            else:
-                return [px - 1, py]
-        #向右上运动
-        elif emission_k < 0:
-            y = emission_y + emission_k * ((px + 0.5) - emission_x)
-            if y <= py - 0.5:
-                return [px, py - 1]
-            else:
-                return [px + 1, py]
-        #垂直向下 k=0
         else:
-            return [px, py - 1]
+            if emission_k > 0:
+                y = emission_y + emission_k * ((px - 0.5) - emission_x)
+                #向左上运动
+                if y <= py - 0.5:
+                    return [px, py - 1]
+                else:
+                    return [px - 1, py]
+            #向右上运动
+            elif emission_k < 0:
+                y = emission_y + emission_k * ((px + 0.5) - emission_x)
+                if y <= py - 0.5:
+                    return [px, py - 1]
+                else:
+                    return [px + 1, py]
+            #垂直向下 k=0
+            else:
+                return [px, py - 1]
 
 
 # 计算YSi/Cl+,刻蚀产额
@@ -102,15 +141,15 @@ def reflect_prob(theta, material):
     if material == 'Hardmask':
         base_prob = 0.4
         angle_else = min(0.6, 0.6 * (theta / math.pi) / 2)
-        return base_prob + angle_else
+        # return base_prob + angle_else
         # 测试
-        # return 1.0
+        return 1.0
     elif material == 'Si':
         base_prob = 0
         angle_else = min(1, 1 * (theta - math.pi/3) / math.pi/6)
-        return base_prob + angle_else
+        # return base_prob + angle_else
         # 测试
-        # return 1.0
+        return 1.0
     else:
         return 0.0
 
@@ -475,7 +514,7 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
 
 
 # 加速函数：使用大步长+回退+小步长策略快速到达材料表面附近
-def find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_array, rows, cols, s_image, direction=1):
+def find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_array, rows, cols, s_image, is_reflect, direction=1):
     """
     使用大步长跳跃快速逼近材料表面，检测到碰撞后回退，最后用小步长逐行精确定位
     参考return_next的运动逻辑，支持向上/向下运动
@@ -498,11 +537,6 @@ def find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_ar
     # 第一阶段：粗查 - 用大步长快速跳跃，参考return_next的运动逻辑
     while True:
         # 根据direction计算下一个检测点（大步长）
-        if direction >= 0:  # 向下运动
-            next_py = min(current_py + big_step, cols - 1)
-        else:  # 向上运动
-            next_py = max(current_py - big_step, 0)
-        
         # 参考return_next逻辑计算px变化（未反射情况，直接向下/上）
         if direction >= 0:  # 向下运动
             # 类似return_next中is_reflect=False, direction>=0的情况
@@ -518,19 +552,19 @@ def find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_ar
         else:  # 向上运动
             # 类似return_next中direction<0的情况
             if emission_k > 0:
-                y_test = emission_y + emission_k * ((current_px - 0.5) - emission_x)
-                if y_test <= next_py - 0.5:
-                    next_px = current_px  # 垂直向上
-                else:
-                    next_px = current_px - big_step  # 向左上
+                # 主要向左上
+                next_px = current_px - big_step
             elif emission_k < 0:
-                y_test = emission_y + emission_k * ((current_px + 0.5) - emission_x)
-                if y_test <= next_py - 0.5:
-                    next_px = current_px  # 垂直向上
-                else:
-                    next_px = current_px + big_step  # 向右上
+                # 主要向右上，需要根据轨迹判断
+                next_px = current_px + big_step
             else:
                 next_px = current_px  # 垂直向上
+        
+        if direction >= 0:  # 向下运动
+            next_py = int(current_py + emission_k * big_step)
+        else:  # 向上运动
+            next_py = int(current_py - emission_k * big_step)
+        
         
         # 边界检查
         if not (0 <= next_px < rows and 0 <= next_py < cols):
@@ -542,42 +576,63 @@ def find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_ar
             # 检测到材料！进行回退和精查
             break
 
+        # 检查是否到达边界
+        if (direction >= 0 and current_py >= cols - 1) or \
+           (direction < 0 and current_py <= 0):
+            return None
+        
         # 画线
         if 0 < next_px < rows and 0 < next_py < cols:
             s_image[next_px, next_py] = 60
 
         current_px, current_py = next_px, next_py
         
-        # 检查是否到达边界
-        if (direction >= 0 and current_py >= cols - 1) or \
-           (direction < 0 and current_py <= 0):
-            return None
-    
-    # 第二阶段：回退到前一个安全位置
-    if direction >= 0:
-        current_py = max(current_py - big_step, py)
-    else:
-        current_py = min(current_py + big_step, py)
-    
-    # 重新计算current_px（保持逻辑一致）
-    if direction >= 0:
-        if emission_k > 0:
-            current_px = px - big_step
-        elif emission_k < 0:
-            current_px = px + big_step
-        else:
-            current_px = px
-    else:
-        if emission_k > 0:
-                current_px = px + big_step
-        elif emission_k < 0:
-                current_px = px - big_step
-        else:
-            current_px = px
 
-    # # 画线
-    # if 0 < next_px < rows and 0 < next_py < cols:
-    #     s_image[next_px, next_py] = 80
+    # 第二阶段：回退到前一个安全位置
+    if direction >= 0:  # 向下运动
+        # 类似return_next中is_reflect=False, direction>=0的情况
+        if emission_k > 0:
+            # 主要向右下，需要根据轨迹判断
+            next_px = current_px - big_step
+        elif emission_k < 0:
+            # 主要向左下
+            next_px = current_px + big_step
+        else:
+            # 垂直向下
+            next_px = current_px
+    else:  # 向上运动
+        # 类似return_next中direction<0的情况
+        if emission_k > 0:
+            # 主要向左上
+            next_px = current_px + big_step
+        elif emission_k < 0:
+            # 主要向右上，需要根据轨迹判断
+            next_px = current_px - big_step
+        else:
+            next_px = current_px  # 垂直向上
+    
+    if direction >= 0:  # 向下运动
+        next_py = int(current_py - emission_k * big_step)
+    else:  # 向上运动
+        next_py = int(current_py + emission_k * big_step)
+    
+    
+    # 边界检查
+    if not (0 <= next_px < rows and 0 <= next_py < cols):
+        # 超出边界，返回 None
+        return None
+
+    # 检查是否到达边界
+    if (direction >= 0 and current_py >= cols - 1) or \
+        (direction < 0 and current_py <= 0):
+        return None
+    
+    # 画线
+    if 0 < next_px < rows and 0 < next_py < cols:
+        s_image[next_px, next_py] = 80
+
+    current_px, current_py = next_px, next_py
+
     
     # 第三阶段：精查 - 用return_next进行精确逐步移动
     while 0 <= current_px < rows and 0 <= current_py < cols:
@@ -587,12 +642,11 @@ def find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_ar
             return [current_px, current_py]
         
         # 使用return_next进行精确移动（一步一步）
-        next_pos = return_next(emission_x, emission_y, emission_k, current_px, current_py, direction)
+        next_pos = return_next(emission_x, emission_y, emission_k, current_px, current_py, is_reflect, direction)
         current_px, current_py = next_pos
-    # 画线
-    if 0 < current_px < rows and 0 < current_py < cols:
-        s_image[current_px, current_py] = 80
-        
+        # 画线
+        if 0 < current_px < rows and 0 < current_py < cols:
+            s_image[current_px, current_py] = 100
     # 未找到材料
     return None
 
@@ -677,7 +731,7 @@ def main():
     }
 
     #模拟粒子入射
-    for cl in range(10):
+    for cl in range(2):
         # 考虑openCD对形貌影响
         #粒子初始位置
         # emission_x = left_border + random.random() * (right_border - left_border)
@@ -686,7 +740,7 @@ def main():
         # emission_y_neutral = vacuum - 1
         
         # 测试入射角度45度的时候改了一下入射范围
-        emission_x = left_border + random.random() * (right_border - left_border) / 2
+        emission_x = left_border + random.random() * (right_border - left_border) / 2 + 100
         species = random.random() > (10/11)
         # emission_theta = (random.random()-0.5) * math.pi
         # emission_k = np.tan(emission_theta)
@@ -779,11 +833,11 @@ def main():
                     # plt.pause(0.1)  # 暂停一小段时间以便观察
 
                     # 使用正确的方向参数调用return_next
-                    next_pos = return_next(emission_x, emission_y, emission_k, px, py, particle_direction)
+                    next_pos = return_next(emission_x, emission_y, emission_k, px, py, is_reflect, particle_direction)
                     px, py = next_pos
                     # 标记粒子轨迹,画线
-                    # if px < rows and py < cols:
-                    #     s_image[px, py] = 60
+                    if px < rows and py < cols:
+                        s_image[px, py] = 70
                     continue  # 继续外部循环
                     # for step in range(max_steps):
                     #     next_pos = return_next(emission_x, emission_y, new_k, px, py, V_out[1])
@@ -805,7 +859,7 @@ def main():
                     break
             else:
                 # 使用加速函数快速到达材料表面附近，传入direction参数
-                result = find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_array, rows, cols, s_image, direction=particle_direction)
+                result = find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_array, rows, cols, s_image, is_reflect = 0, direction=particle_direction)
                 if result is not None:
                     px, py = result
                 else:
