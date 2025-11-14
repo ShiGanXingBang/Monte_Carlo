@@ -20,30 +20,22 @@ class Si_Class:
 def return_next(emission_x, emission_y, emission_k, px, py, is_reflect, direction=1):
     if is_reflect:
         if direction >= 0:
-                #向右下运动
-                if emission_k > 0:
-                        return [px + 1, py+1]
-                #向左下运动
-                elif emission_k < 0:
-                        return [px - 1, py + 1]
-                #垂直向下 k=0
-                else:
-                    return [px, py + 1]
+            #向右下运动
+            if emission_k > 0:
+                return [px + 1, py+1]
+            #向左下运动
+            elif emission_k < 0:
+                return [px - 1, py + 1]
+            #垂直向下 k=0
+            else:
+                return [px, py + 1]
         else:
             if emission_k > 0:
-                y = emission_y + emission_k * ((px - 0.5) - emission_x)
                 #向左上运动
-                if y <= py - 0.5:
-                    return [px, py - 1]
-                else:
-                    return [px - 1, py]
+                return [px - 1, py - 1]
             #向右上运动
             elif emission_k < 0:
-                y = emission_y + emission_k * ((px + 0.5) - emission_x)
-                if y <= py - 0.5:
-                    return [px, py - 1]
-                else:
-                    return [px + 1, py]
+                return [px + 1, py - 1]
             #垂直向下 k=0
             else:
                 return [px, py - 1]
@@ -731,7 +723,7 @@ def main():
     }
 
     #模拟粒子入射
-    for cl in range(2):
+    for cl in range(1):
         # 考虑openCD对形貌影响
         #粒子初始位置
         # emission_x = left_border + random.random() * (right_border - left_border)
@@ -740,7 +732,7 @@ def main():
         # emission_y_neutral = vacuum - 1
         
         # 测试入射角度45度的时候改了一下入射范围
-        emission_x = left_border + random.random() * (right_border - left_border) / 2 + 100
+        emission_x = left_border + random.random() * (right_border - left_border) / 2 - 50
         species = random.random() > (10/11)
         # emission_theta = (random.random()-0.5) * math.pi
         # emission_k = np.tan(emission_theta)
