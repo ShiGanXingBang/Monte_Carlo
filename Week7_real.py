@@ -552,10 +552,15 @@ def find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_ar
             else:
                 next_px = current_px  # 垂直向上
         
-        if direction >= 0:  # 向下运动
-            next_py = int(current_py + emission_k * big_step)
-        else:  # 向上运动
-            next_py = int(current_py - emission_k * big_step)
+            # 算出实际走了多远（包含方向符号）
+        real_step_x = next_px - current_px
+            
+        if direction >= 0:
+            next_py = int(current_py + emission_k * real_step_x)
+        else:
+            # 向上运动时，return_next 的逻辑往往意味着回溯，符号要小心
+            # 根据你原代码逻辑保留减号，但乘以实际的x步长
+            next_py = int(current_py - emission_k * real_step_x)
         
         
         # 边界检查
@@ -603,10 +608,20 @@ def find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_ar
         else:
             next_px = current_px  # 垂直向上
     
-    if direction >= 0:  # 向下运动
-        next_py = int(current_py - emission_k * big_step)
-    else:  # 向上运动
-        next_py = int(current_py + emission_k * big_step)
+    # 计算回退时的 X 变化量
+    delta_x = next_px - current_px
+    
+    if direction >= 0:
+        # 注意：这里原本是减号，因为是回退。
+        # 但如果我们用 delta_x (它是反向的)，我们应该加回去还是...？
+        # 原代码逻辑：current - k * step。
+        # 新逻辑：current - k * dx (因为dx已经包含了步长信息)
+        # 为了保持和你原逻辑一致的“反向操作”：
+        # 既然 next_px 已经回退了，我们直接用正向公式计算对应的 y 即可！
+        # 因为 (next_px, next_py) 必须在直线上。
+        next_py = int(current_py + emission_k * delta_x)
+    else:
+        next_py = int(current_py - emission_k * delta_x)
     
     
     # 边界检查
@@ -723,16 +738,16 @@ def main():
     }
 
     #模拟粒子入射
-    for cl in range(1):
+    for cl in range(2):
         # 考虑openCD对形貌影响
         #粒子初始位置
-        # emission_x = left_border + random.random() * (right_border - left_border)
+        emission_x = left_border + random.random() * (right_border - left_border)
         emission_y_Ion = 1
         emission_y_neutral = 1
         # emission_y_neutral = vacuum - 1
         
         # 测试入射角度45度的时候改了一下入射范围
-        emission_x = left_border + random.random() * (right_border - left_border) / 2 - 50
+        # emission_x = left_border + random.random() * (right_border - left_border) / 2 - 50
         species = random.random() > (10/11)
         # emission_theta = (random.random()-0.5) * math.pi
         # emission_k = np.tan(emission_theta)
@@ -757,8 +772,8 @@ def main():
             emission_y = emission_y_Ion
         else:
             #中性粒子入射概率
-            # angle_rad = math.asin(random.random() * 2 - 1)
-            angle_rad = math.pi / 4
+            angle_rad = math.asin(random.random() * 2 - 1)
+            # angle_rad = math.pi / 4
             abs_angle = abs(angle_rad)
             # print("中性")
             # print(angle_rad)
@@ -795,7 +810,7 @@ def main():
         #运动轨迹追踪
         max_steps = 4000  # 防止无限循环
         ref_count = 0
-        count = 2
+        count = 1
         particle_direction = 1 # 初始方向向下
         for step in range(max_steps):
             # next_pos  = return_next(emission_x, 1, emission_k, px, py)
