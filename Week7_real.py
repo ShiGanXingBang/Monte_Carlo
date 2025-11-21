@@ -133,15 +133,15 @@ def reflect_prob(theta, material):
     if material == 'Hardmask':
         base_prob = 0.4
         angle_else = min(0.6, 0.6 * (theta / math.pi) / 2)
-        # return base_prob + angle_else
+        return base_prob + angle_else
         # 测试
-        return 1.0
+        # return 1.0
     elif material == 'Si':
         base_prob = 0
         angle_else = min(1, 1 * (theta - math.pi/3) / math.pi/6)
-        # return base_prob + angle_else
+        return base_prob + angle_else
         # 测试
-        return 1.0
+        # return 1.0
     else:
         return 0.0
 
@@ -410,7 +410,7 @@ def reflect_angle(Si_array, px, py, k, reflext_prob, direction = 1, left_border 
                 current_reflect_angle = math.atan2(V_out[1], V_out[0])  # 反射角，范围[-π, π]
                 
                 # 固定反射角偏转角度
-                # angle_increment = math.radians(5)  # θ角度转弧度
+                # angle_increment = math.radians(0)  # θ角度转弧度5
                 
                 # 根据象限决定角度调整方向和边界约束
                 if current_reflect_angle > 0 and current_reflect_angle < math.pi / 2:
@@ -522,106 +522,115 @@ def find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_ar
     返回：
         [px, py] 如果找到材料，或 None 如果未找到
     """
-    big_step = 5  # 大步长大小
+    big_step = 43  # 大步长大小
     rows, cols = Si_array.shape
     current_px, current_py = px, py
     
     # 第一阶段：粗查 - 用大步长快速跳跃，参考return_next的运动逻辑
     while True:
-        # 根据direction计算下一个检测点（大步长）
-        # 参考return_next逻辑计算px变化（未反射情况，直接向下/上）
-        if direction >= 0:  # 向下运动
-            # 类似return_next中is_reflect=False, direction>=0的情况
-            if emission_k > 0:
-                # 主要向右下，需要根据轨迹判断
-                next_px = current_px + big_step
-            elif emission_k < 0:
-                # 主要向左下
-                next_px = current_px - big_step
+            # ================== 修正开始：自适应步进 ==================
+            # 判断是“X轴主导”还是“Y轴主导”
+            # abs(emission_k) > 1 说明是陡峭线，Y变化更快，应该按 Y 步进
+            if abs(emission_k) > 1:
+                # --- Y轴主导 (Steep) ---
+                step_y = big_step
+                
+                # 确定 Y 的步进方向 (根据 direction)
+                if direction >= 0: # 向下
+                    real_step_y = step_y
+                else:              # 向上
+                    real_step_y = -step_y
+                    
+                # 计算 next_py
+                next_py = current_py + real_step_y
+                
+                # 反算 next_px ( x = x0 + dy / k )
+                # 注意：这里必须用 float 计算增量，再取整
+                next_px = int(current_px + real_step_y / emission_k)
+
             else:
-                # 垂直向下
-                next_px = current_px
-        else:  # 向上运动
-            # 类似return_next中direction<0的情况
-            if emission_k > 0:
-                # 主要向左上
-                next_px = current_px - big_step
-            elif emission_k < 0:
-                # 主要向右上，需要根据轨迹判断
-                next_px = current_px + big_step
-            else:
-                next_px = current_px  # 垂直向上
+                # --- X轴主导 (Shallow) - 保持原逻辑 ---
+                step_x = big_step
+                
+                # 确定 X 的步进方向 (需结合 k 和 direction)
+                # 逻辑：向下(dir>0)且k>0 -> x增加; 向下且k<0 -> x减小...
+                # 简化的通用公式：real_step_x = (step_x if (k>0) == (dir>=0) else -step_x) 
+                # 但为了稳妥，保留你的显式判断逻辑：
+                if direction >= 0:
+                    if emission_k > 0:   dx = step_x
+                    elif emission_k < 0: dx = -step_x
+                    else:                dx = 0
+                else: # direction < 0
+                    if emission_k > 0:   dx = -step_x
+                    elif emission_k < 0: dx = step_x
+                    else:                dx = 0
+                
+                next_px = current_px + dx
+                
+                # 算出实际走了多远
+                real_step_x = next_px - current_px
+                # 算 Y
+                if direction >= 0:
+                    next_py = int(current_py + emission_k * real_step_x)
+                else:
+                    next_py = int(current_py - emission_k * real_step_x)
+            # ================== 修正结束 ==================
         
-            # 算出实际走了多远（包含方向符号）
-        real_step_x = next_px - current_px
+        
+            # 边界检查
+            if not (0 <= next_px < rows and 0 <= next_py < cols):
+                # 超出边界，返回 None
+                return None
             
-        if direction >= 0:
-            next_py = int(current_py + emission_k * real_step_x)
-        else:
-            # 向上运动时，return_next 的逻辑往往意味着回溯，符号要小心
-            # 根据你原代码逻辑保留减号，但乘以实际的x步长
-            next_py = int(current_py - emission_k * real_step_x)
-        
-        
-        # 边界检查
-        if not (0 <= next_px < rows and 0 <= next_py < cols):
-            # 超出边界，返回 None
-            return None
-        
-        # 检查这个点是否有材料
-        if Si_array[next_px, next_py].existflag:
-            # 检测到材料！进行回退和精查
-            break
+            # 检查这个点是否有材料
+            if Si_array[next_px, next_py].existflag:
+                # 检测到材料！进行回退和精查
+                break
 
-        # 检查是否到达边界
-        if (direction >= 0 and current_py >= cols - 1) or \
-           (direction < 0 and current_py <= 0):
-            return None
-        
-        # 画线
-        if 0 < next_px < rows and 0 < next_py < cols:
-            s_image[next_px, next_py] = 60
+            # 检查是否到达边界
+            if (direction >= 0 and current_py >= cols - 1) or \
+            (direction < 0 and current_py <= 0):
+                return None
+            
+            # 画线
+            # if 0 < next_px < rows and 0 < next_py < cols:
+            #     s_image[next_px, next_py] = 60  #黄线
 
-        current_px, current_py = next_px, next_py
+            current_px, current_py = next_px, next_py
         
 
     # 第二阶段：回退到前一个安全位置
-    if direction >= 0:  # 向下运动
-        # 类似return_next中is_reflect=False, direction>=0的情况
-        if emission_k > 0:
-            # 主要向右下，需要根据轨迹判断
-            next_px = current_px - big_step
-        elif emission_k < 0:
-            # 主要向左下
-            next_px = current_px + big_step
-        else:
-            # 垂直向下
-            next_px = current_px
-    else:  # 向上运动
-        # 类似return_next中direction<0的情况
-        if emission_k > 0:
-            # 主要向左上
-            next_px = current_px + big_step
-        elif emission_k < 0:
-            # 主要向右上，需要根据轨迹判断
-            next_px = current_px - big_step
-        else:
-            next_px = current_px  # 垂直向上
-    
-    # 计算回退时的 X 变化量
-    delta_x = next_px - current_px
-    
-    if direction >= 0:
-        # 注意：这里原本是减号，因为是回退。
-        # 但如果我们用 delta_x (它是反向的)，我们应该加回去还是...？
-        # 原代码逻辑：current - k * step。
-        # 新逻辑：current - k * dx (因为dx已经包含了步长信息)
-        # 为了保持和你原逻辑一致的“反向操作”：
-        # 既然 next_px 已经回退了，我们直接用正向公式计算对应的 y 即可！
-        # 因为 (next_px, next_py) 必须在直线上。
-        next_py = int(current_py + emission_k * delta_x)
+# ================== 修正开始：自适应回退 ==================
+    if abs(emission_k) > 1:
+        # --- Y轴主导回退 ---
+        # 直接反向操作 current_py (回退一个 big_step)
+        if direction >= 0: # 原本是向下，回退就是向上
+             back_step_y = -big_step
+        else:              # 原本是向上，回退就是向下
+             back_step_y = big_step
+             
+        next_py = int(current_py + back_step_y)
+        next_px = int(current_px + back_step_y / emission_k)
+        
     else:
-        next_py = int(current_py - emission_k * delta_x)
+        # --- X轴主导回退 (原逻辑) ---
+        # ... (保留你原来的X回退逻辑，或者复制上面的 X计算逻辑但把 big_step 改为 -big_step)
+        if direction >= 0:
+            if emission_k > 0:   dx = -big_step
+            elif emission_k < 0: dx = big_step
+            else:                dx = 0
+        else:
+            if emission_k > 0:   dx = big_step
+            elif emission_k < 0: dx = -big_step
+            else:                dx = 0
+            
+        next_px = current_px + dx
+        real_step_x = next_px - current_px
+        if direction >= 0:
+            next_py = int(current_py + emission_k * real_step_x)
+        else:
+            next_py = int(current_py - emission_k * real_step_x)
+    # ================== 修正结束 ==================
     
     
     # 边界检查
@@ -635,8 +644,8 @@ def find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_ar
         return None
     
     # 画线
-    if 0 < next_px < rows and 0 < next_py < cols:
-        s_image[next_px, next_py] = 80
+    # if 0 < next_px < rows and 0 < next_py < cols:
+    #     s_image[next_px, next_py] = 80  #红色
 
     current_px, current_py = next_px, next_py
 
@@ -649,11 +658,11 @@ def find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_ar
             return [current_px, current_py]
         
         # 使用return_next进行精确移动（一步一步）
-        next_pos = return_next(emission_x, emission_y, emission_k, current_px, current_py, is_reflect, direction)
+        next_pos = return_next(next_px, next_py, emission_k, current_px, current_py, is_reflect, direction)
         current_px, current_py = next_pos
         # 画线
-        if 0 < current_px < rows and 0 < current_py < cols:
-            s_image[current_px, current_py] = 100
+        # if 0 < current_px < rows and 0 < current_py < cols:
+        #     s_image[current_px, current_py] = 100 #深红线 
     # 未找到材料
     return None
 
@@ -738,7 +747,7 @@ def main():
     }
 
     #模拟粒子入射
-    for cl in range(2):
+    for cl in range(150000):
         # 考虑openCD对形貌影响
         #粒子初始位置
         emission_x = left_border + random.random() * (right_border - left_border)
@@ -843,8 +852,8 @@ def main():
                     next_pos = return_next(emission_x, emission_y, emission_k, px, py, is_reflect, particle_direction)
                     px, py = next_pos
                     # 标记粒子轨迹,画线
-                    if px < rows and py < cols:
-                        s_image[px, py] = 70
+                    # if px < rows and py < cols:
+                    #     s_image[px, py] = 70  #黄线
                     continue  # 继续外部循环
                     # for step in range(max_steps):
                     #     next_pos = return_next(emission_x, emission_y, new_k, px, py, V_out[1])
@@ -866,6 +875,7 @@ def main():
                     break
             else:
                 # 使用加速函数快速到达材料表面附近，传入direction参数
+                # result = return_next(emission_x, emission_y, emission_k, px, py, 0, particle_direction)
                 result = find_nearest_material_fast(emission_x, emission_y, emission_k, px, py, Si_array, rows, cols, s_image, is_reflect = 0, direction=particle_direction)
                 if result is not None:
                     px, py = result
