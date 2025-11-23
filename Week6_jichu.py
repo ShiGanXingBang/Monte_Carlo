@@ -595,17 +595,17 @@ def main():
     }
 
     #模拟粒子入射
-    for cl in range(5000):
+    for cl in range(400000):
         # 考虑openCD对形貌影响
         #粒子初始位置
         # emission_x = left_border + random.random() * (right_border - left_border)
-        emission_x = random.random() * (rows - 1)
+        emission_x = random.random() * rows
         emission_y_Ion = 1
         emission_y_neutral =  1
         
         # 测试入射角度45度的时候改了一下入射范围
         # emission_x = left_border + random.random() * (right_border - left_border) / 2
-        species = random.random() > (30/31)
+        species = random.random() > (10/11)
         # emission_theta = (random.random()-0.5) * math.pi
         # emission_k = np.tan(emission_theta)
         #一种正态分布

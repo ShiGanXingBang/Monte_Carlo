@@ -23,10 +23,24 @@ def generate_ion_angles(num_samples=1000, sigma_degrees=10):
     return angles_rad
 
 # 使用示例
-angles = generate_ion_angles(10000, sigma_degrees=17)
+angles = generate_ion_angles(10000, sigma_degrees=1.91)
 print(angles)
 # 可视化分布
+import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib import font_manager
+
+# 尝试设置中文字体（优先使用 Windows 常见的微软雅黑/SimHei）
+if any('Microsoft YaHei' in f.name for f in font_manager.fontManager.ttflist):
+    matplotlib.rcParams['font.sans-serif'] = ['Microsoft YaHei']
+elif any('SimHei' in f.name for f in font_manager.fontManager.ttflist):
+    matplotlib.rcParams['font.sans-serif'] = ['SimHei']
+else:
+    # 如果没有检测到常见中文字体，给出提示（绘图时中文可能会显示为方块）
+    print("Warning: 未检测到常见中文字体，中文可能无法显示。请安装 'Microsoft YaHei' 或 'SimHei'。")
+
+# 解决负号 '-' 显示为方块的问题
+matplotlib.rcParams['axes.unicode_minus'] = False
 fig, axs = plt.subplots(1, 2, figsize=(12, 5))
 
 # 第一张图：角度（度）
