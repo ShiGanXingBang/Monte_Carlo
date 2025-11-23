@@ -141,16 +141,18 @@ def chain_reaction(Si_array, px, py, Ysicl, s_image):
 def reflect_prob(theta, material):
     if material == 'Hardmask':
         base_prob = 0
-        angle_else = min(1, 1 * (theta - math.pi/3) / math.pi/6)
-        return base_prob + angle_else
+        angle_else = max(0, 1 * (theta - math.pi/3) / (math.pi/2 - math.pi/3))
+        angle_else = min(1, angle_else)
+        # return base_prob + angle_else
         # 测试
-        # return 1.0
+        return 1.0
     elif material == 'Si':
         base_prob = 0
-        angle_else = min(1, 1 * (theta - math.pi/3) / math.pi/6)
-        return base_prob + angle_else
+        angle_else = max(0, 1 * (theta - math.pi/3) / (math.pi/2 - math.pi/3))
+        angle_else = min(1, angle_else)
+        # return base_prob + angle_else
         # 测试
-        # return 1.0
+        return 1.0
     else:
         return 0.0
 
@@ -363,7 +365,11 @@ def reflector_face(Si_array, center_i, center_j, n=4, left_border = 350):
 
 
 # 生成反射角度
-def reflect_angle(Si_array, px, py, k, reflext_prob, direction = 1, left_border = 350):
+def reflect_angle(Si_array, px, py, k, reflext_prob, direction=1, species=0, left_border=350):
+    """根据粒子类型选择反射机制
+    species = 1: 离子 (镜面反射)
+    species = 0: 中性粒子 (漫反射)
+    """
     is_reflect_flag = 0
     reflect_k = k
     V_out = np.array([0, 0])
@@ -372,99 +378,74 @@ def reflect_angle(Si_array, px, py, k, reflext_prob, direction = 1, left_border 
         incident_angle = math.atan(abs(k))
         if incident_angle > math.radians(10):
             if random.random() < reflext_prob:
-                # 计算入射向量,k是斜率
-                # direction 是方向
-                if abs(k) < 1e-9:  # 避免除零
-                    # 近似水平运动
-                    V_in = np.array([direction * float('inf'), direction])
-                else:
-                    V_in = np.array([direction / k, direction])
-
-                V_in = V_in / np.linalg.norm(V_in)
-
-                # 获取法线向量和反射向量- 添加安全检查
+                # 获取法线向量
                 result = reflector_face(Si_array, px, py, n=4)
                 if result is None or result[1] is None:
-                    # 无法获取法线，使用默认垂直法线
+                    # 无法获取法线，使用默认法线
                     if px <= left_border:
-                        N = np.array([1, 0]) # 拟合失败则返回默认值
+                        N = np.array([1, 0])
                     else:
-                        N = np.array([-1, 0]) # 拟合失败则返回默认值
+                        N = np.array([-1, 0])
                 else:
                     _, N = result
 
-                # 计算反射向量
-                V_out = V_in - 2 * (np.dot(V_in, N)) * N
+                # 根据粒子类型选择反射机制
+                if species == 1:
+                    # ============ 离子：镜面反射 ============
+                    # 计算入射向量
+                    if abs(k) < 1e-9:
+                        V_in = np.array([direction * float('inf'), direction])
+                    else:
+                        V_in = np.array([direction / k, direction])
+                    V_in = V_in / np.linalg.norm(V_in)
 
-                # 计算反射斜率
-                if abs(V_out[0]) < 1e-10:  # 避免除零错误
-                    reflect_k = float('inf')  # 垂直运动
-                else:
-                    reflect_k = V_out[1] / V_out[0]
-                    # print(V_out[1],V_out[0])
+                    # 计算镜面反射向量
+                    V_out = V_in - 2 * (np.dot(V_in, N)) * N
 
-                # 引入文献中的 cos^n θ 分布：用高斯随机扰动模拟反射方向的分散性
-                # 文献：Analytical modeling of silicon etch process in high density plasma
-                
-                sigma_degrees = 1.91     #主要分布±5.73，概率99.7%
-                # sigma_degrees = 15    #主要分布±10，20 els hardly equal zero
-                # sigma_degrees = 17
-                # sigma_degrees = 20    #主要分布±20，40 els hardly equal zero
-                sigma = np.radians(sigma_degrees)   # 这个sigma值对应分布宽度，相当于文献中的 `n`
-                angle_increment = random.gauss(0, sigma) # 生成一个随机偏转角
-                # angle_increment = abs(random.gauss(0, sigma)) # 生成一个随机偏转角
-                # deviation_angle = math.pi/2 *(5/90)
-                # # 将偏转角加到由 reflect_k 计算出的角度上，得到最终方向
-                # new_angle = math.atan(reflect_k) + deviation_angle
-                # reflect_k = math.tan(new_angle)
-                # 从V_out计算当前反射角（由物理反射定律计算出的反射角）
-                current_reflect_angle = math.atan2(V_out[1], V_out[0])  # 反射角，范围[-π, π]
-                
-                # 固定反射角偏转角度
-                # angle_increment = math.radians(5)  # θ角度转弧度
-                
-                # 根据象限决定角度调整方向和边界约束
-                if current_reflect_angle > 0 and current_reflect_angle < math.pi / 2:
-                    # 第一象限(0, 90°): 增大角度
-                    new_reflect_angle = current_reflect_angle + angle_increment
-                    # 不能越过象限边界
-                    if new_reflect_angle >= math.pi / 2:
-                        new_reflect_angle = math.pi / 2 - 1e-9
-                        
-                elif current_reflect_angle > math.pi / 2 and current_reflect_angle <= math.pi:
-                    # 第二象限(90°, 180°): 减小角度
-                    new_reflect_angle = current_reflect_angle - angle_increment
-                    # 不能越过象限边界
-                    if new_reflect_angle <= math.pi / 2:
-                        new_reflect_angle = math.pi / 2 + 1e-9
-                        
-                elif current_reflect_angle < -math.pi / 2 and current_reflect_angle >= -math.pi:
-                    # 第三象限(-180°, -90°): 增大角度
-                    new_reflect_angle = current_reflect_angle + angle_increment
-                    # 如果偏移后大于-90°，设置为-90°（垂直），k=999
-                    if new_reflect_angle > -math.pi / 2:
-                        new_reflect_angle = -math.pi / 2
-                        
-                elif current_reflect_angle > -math.pi / 2 and current_reflect_angle < 0:
-                    # 第四象限(-90°, 0): 减小角度
-                    new_reflect_angle = current_reflect_angle - angle_increment
-                    # 如果偏移后小于-90°，设置为-90°（垂直），k=999
-                    if new_reflect_angle < -math.pi / 2:
-                        new_reflect_angle = -math.pi / 2
+                    # 从反射向量计算反射斜率
+                    if abs(V_out[0]) < 1e-10:
+                        reflect_k = 999.0
+                    else:
+                        reflect_k = V_out[1] / V_out[0]
+
                 else:
-                    # 边界情况（0°, 90°, -90°, 180°），保持原角度
-                    new_reflect_angle = current_reflect_angle
-                
-                # 从新反射角计算反射斜率
-                if abs(abs(new_reflect_angle) - math.pi/2) < 1e-9:
-                    # 垂直运动，k=999表示接近垂直的大斜率
-                    reflect_k = 999.0
-                else:
-                    reflect_k = math.tan(new_reflect_angle)
+                    # ============ 中性粒子：漫反射 ============
+                    # 漫反射：在靠近真空的半球范围内各个方向均匀随机分布
                     
+                    # 确保法线指向真空
+                    # 根据运动方向判断法线方向是否正确
+                    if direction > 0 and N[1] < 0:  # 向下运动，法线应指向上（负y）
+                        N = -N
+                    elif direction < 0 and N[1] > 0:  # 向上运动，法线应指向下（正y）
+                        N = -N
+                    
+                    # 在法线坐标系中随机生成反射方向（半球均匀分布）
+                    # 使用均匀分布的随机角度
+                    theta = random.random() * math.pi / 2  # 与法线夹角 [0, π/2]
+                    phi = random.random() * 2 * math.pi  # 方位角 [0, 2π]
+                    
+                    # 反射向量分量
+                    sin_theta = math.sin(theta)
+                    cos_theta = math.cos(theta)
+                    
+                    # 构建法线坐标系（二维）
+                    # N是主方向（指向真空）
+                    # 找到垂直于N的方向
+                    perp = np.array([-N[1], N[0]])  # 垂直于N的向量
+                    perp = perp / np.linalg.norm(perp)
+                    
+                    # 在半球范围内均匀生成反射向量
+                    V_out = cos_theta * N + sin_theta * (math.cos(phi) * perp + math.sin(phi) * np.array([0, 0]))
+                    V_out = V_out / np.linalg.norm(V_out)  # 归一化
+                    
+                    # 计算反射斜率
+                    if abs(V_out[0]) < 1e-10:
+                        reflect_k = 999.0 if V_out[1] > 0 else -999.0
+                    else:
+                        reflect_k = V_out[1] / V_out[0]
+
                 # 更新状态
                 is_reflect_flag = 1
-                
                 return is_reflect_flag, reflect_k, V_out
 
         return is_reflect_flag, reflect_k, V_out
@@ -531,13 +512,13 @@ def main():
     # 数据层面上初始化仿真界面
     vacuum = 50
     rows = 700
-    cols = 1000
-    left_border = 250
-    right_border = 450
-    deep_border = 300
+    cols = 700
+    left_border = 200
+    right_border = 500
+    deep_border = 200
     start_time = time.perf_counter()
     # 掩膜角度fa
-    angle_img = abs(0)
+    angle_img = abs(3)
     Si_array = np.empty(shape=(rows,cols), dtype=object)
     # 数据初始化整合到下面的图形初始化里面了，一块初始化
     for i in range(rows):
@@ -594,18 +575,22 @@ def main():
         4: {'Cl*': 1.0, 'Cl+': 0.3}  # 俘获4个Cl
     }
 
+    emission_x = left_border - 1
     #模拟粒子入射
-    for cl in range(5000):
+    for cl in range(5):
         # 考虑openCD对形貌影响
         #粒子初始位置
         # emission_x = left_border + random.random() * (right_border - left_border)
-        emission_x = random.random() * (rows - 1)
+        # emission_x = random.random() * (rows - 1)
+        emission_x = emission_x + 30
         emission_y_Ion = 1
         emission_y_neutral =  1
         
         # 测试入射角度45度的时候改了一下入射范围
         # emission_x = left_border + random.random() * (right_border - left_border) / 2
-        species = random.random() > (30/31)
+        # species = random.random() > (10/11)
+
+        species = 1
         # emission_theta = (random.random()-0.5) * math.pi
         # emission_k = np.tan(emission_theta)
         #一种正态分布
@@ -622,10 +607,11 @@ def main():
             # 测试45度入射角
             # angle_rad = -math.pi / 4
             abs_angle = abs(angle_rad)
+            angle = abs_angle * 90/math.pi
             # 测试入射角度范围，下面同理
             # print("离子")
             # print(angle_rad)
-            emission_k = 1.0 / math.tan(angle_rad)
+            emission_k = 1.0 / math.tan(angle)
             emission_y = emission_y_Ion
         else:
             #中性粒子入射概率
@@ -637,6 +623,8 @@ def main():
             # 测试45度入射角
             # angle_rad = -math.pi / 4
             abs_angle = abs(angle_rad)
+            angle = abs_angle * 90/math.pi
+
             # 测试入射角度范围，下面同理
             # print("中性粒子")
             # print(angle_rad)
@@ -659,13 +647,21 @@ def main():
         if abs_k <= 0.1:#近似水平
             continue
         elif abs_k >= 200:#近似垂直
-            px = math.ceil(emission_x)
-            for py in range(deep_border + 1, cols):
-                if 0 <= px < rows and Si_array[px, py].existflag:
-                    clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image) # 碰撞函数
-                    if clearflag:
-                         s_image[px, py] = 25  #真空
-                    break
+            px = math.ceil(emission_x) #  向上取整
+            if left_border < px < right_border:
+                for py in range(deep_border + 1, cols):
+                    if 0 <= px < rows and Si_array[px, py].existflag:
+                        clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image) # 碰撞函数
+                        if clearflag:
+                            s_image[px, py] = 25  #真空
+                        break
+            else:
+                for py in range(vacuum + 1, cols):
+                    if 0 <= px < rows and Si_array[px, py].existflag:
+                        clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image) # 碰撞函数
+                        if clearflag:
+                            s_image[px, py] = 25  #真空
+                        break
         else:
             # 判定是否超出入射界限，后面需要改一下
             # x_intersect = (deep_border + 0.5 - emission_y)/emission_k + emission_x
@@ -682,7 +678,7 @@ def main():
         #运动轨迹追踪
         max_steps = 4000  # 防止无限循环
         ref_count = 0
-        count = 1
+        count = 2
         particle_direction = 1 # 初始方向向下
         for step in range(max_steps):
             # next_pos  = return_next(emission_x, 1, emission_k, px, py)
@@ -692,7 +688,7 @@ def main():
             if Si_array[px, py].existflag:
                 # 检查反射
                 ref_prob = reflect_prob(abs_angle, Si_array[px, py].material_type)
-                is_reflect, new_k, V_out= reflect_angle(Si_array, px, py, emission_k, ref_prob, particle_direction)
+                is_reflect, new_k, V_out= reflect_angle(Si_array, px, py, emission_k, ref_prob, particle_direction, species)
                 #反射次数计数
                 if is_reflect and ref_count < count:
                     # print(f"反射次数: {ref_count + 1}, 最大允许次数: {count}")
@@ -715,8 +711,8 @@ def main():
                     next_pos = return_next(emission_x, emission_y, emission_k, px, py, is_reflect, particle_direction)
                     px, py = next_pos
                     # 标记粒子轨迹,画线
-                    # if px < rows and py < cols:
-                    #     s_image[px, py] = 60
+                    if px < rows and py < cols:
+                        s_image[px, py] = 60
                     continue  # 继续外部循环
                     # for step in range(max_steps):
                     #     next_pos = return_next(emission_x, emission_y, new_k, px, py, V_out[1])
@@ -740,8 +736,8 @@ def main():
                 next_pos = return_next(emission_x, emission_y, emission_k, px, py, 0, particle_direction)
                 px, py = next_pos
                 # 标记粒子轨迹，画线
-                # if px < rows and py < cols:
-                #     s_image[px, py] = 60
+                if px < rows and py < cols:
+                    s_image[px, py] = 60
 
 
 

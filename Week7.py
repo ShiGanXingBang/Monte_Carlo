@@ -3,15 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import random
 import math
-from sklearn.cluster import DBSCAN
-from scipy.signal import savgol_filter
-
-import random
-import math
-from sklearn.cluster import DBSCAN
-from scipy.signal import savgol_filter
-from scipy.interpolate import interp1d
-import numpy as np
+import time
 
 matplotlib.use('TkAgg')  # 或者 'Qt5Agg', 'Agg' 等
 
@@ -148,14 +140,16 @@ def chain_reaction(Si_array, px, py, Ysicl, s_image):
 # 掩膜和衬底反射概率
 def reflect_prob(theta, material):
     if material == 'Hardmask':
-        base_prob = 0.4
-        angle_else = min(0.6, 0.6 * (theta / math.pi) / 2)
+        base_prob = 0
+        angle_else = max(0, 1 * (theta - math.pi/3) / (math.pi/2 - math.pi/3))
+        angle_else = min(1, angle_else)
         return base_prob + angle_else
         # 测试
         # return 1.0
     elif material == 'Si':
         base_prob = 0
-        angle_else = min(1, 1 * (theta - math.pi/3) / math.pi/6)
+        angle_else = max(0, 1 * (theta - math.pi/3) / (math.pi/2 - math.pi/3))
+        angle_else = min(1, angle_else)
         return base_prob + angle_else
         # 测试
         # return 1.0
@@ -413,12 +407,14 @@ def reflect_angle(Si_array, px, py, k, reflext_prob, direction = 1, left_border 
 
                 # 引入文献中的 cos^n θ 分布：用高斯随机扰动模拟反射方向的分散性
                 # 文献：Analytical modeling of silicon etch process in high density plasma
-                # sigma_degrees = 4     #主要分布±5，10 els hardly equal zero
+                
+                sigma_degrees = 1.91     #主要分布±5.73，概率99.7%
                 # sigma_degrees = 15    #主要分布±10，20 els hardly equal zero
-                sigma_degrees = 17
+                # sigma_degrees = 17
                 # sigma_degrees = 20    #主要分布±20，40 els hardly equal zero
                 sigma = np.radians(sigma_degrees)   # 这个sigma值对应分布宽度，相当于文献中的 `n`
-                angle_increment = abs(random.gauss(0, sigma)) # 生成一个随机偏转角
+                angle_increment = random.gauss(0, sigma) # 生成一个随机偏转角
+                # angle_increment = abs(random.gauss(0, sigma)) # 生成一个随机偏转角
                 # deviation_angle = math.pi/2 *(5/90)
                 # # 将偏转角加到由 reflect_k 计算出的角度上，得到最终方向
                 # new_angle = math.atan(reflect_k) + deviation_angle
@@ -536,13 +532,14 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
 def main():
     # 数据层面上初始化仿真界面
     vacuum = 50
-    rows = 700
-    cols = 1000
-    left_border = 300
-    right_border = 400
-    deep_border = 300
+    rows = 800
+    cols = 700
+    left_border = 200
+    right_border = 600
+    deep_border = 200
+    start_time = time.perf_counter()
     # 掩膜角度fa
-    angle_img = abs(0)
+    angle_img = abs(3)
     Si_array = np.empty(shape=(rows,cols), dtype=object)
     # 数据初始化整合到下面的图形初始化里面了，一块初始化
     for i in range(rows):
@@ -600,9 +597,14 @@ def main():
     }
 
     #模拟粒子入射
-    for cl in range(2000):
+    for cl in range(400000):
         # 考虑openCD对形貌影响
+        #粒子初始位置
         emission_x = left_border + random.random() * (right_border - left_border)
+        # emission_x = random.random() * (rows - 1)
+        emission_y_Ion = 1
+        emission_y_neutral =  1
+        
         # 测试入射角度45度的时候改了一下入射范围
         # emission_x = left_border + random.random() * (right_border - left_border) / 2
         species = random.random() > (10/11)
@@ -610,11 +612,12 @@ def main():
         # emission_k = np.tan(emission_theta)
         #一种正态分布
 
+                
         # 粒子入射概率判定
         if species == 1:
             # 离子入射概率
-            # 方差 角度分布大部分在（-5,5）几乎所有都分布在（-10,10）
-            sigma_degrees = 4
+            # 方差 角度分布99.7%分布在（-5.73,5.73）
+            sigma_degrees = 1.91
             sigma = np.radians(sigma_degrees)  # 对于R=100
             angle_rad = random.gauss(0, sigma)
             angle_rad = max(min(angle_rad, math.pi/2), -math.pi/2)
@@ -625,30 +628,54 @@ def main():
             # print("离子")
             # print(angle_rad)
             emission_k = 1.0 / math.tan(angle_rad)
+            emission_y = emission_y_Ion
         else:
             #中性粒子入射概率
-            angle_rad = math.asin(random.random() * 2 - 1)
-            # angle_rad = math.pi / 4
+            # 方差 角度分布99.7%分布在（-22.92,22.92）
+            sigma_degrees = 7.64
+            sigma = np.radians(sigma_degrees)  # 对于R=100
+            angle_rad = random.gauss(0, sigma)
+            angle_rad = max(min(angle_rad, math.pi/2), -math.pi/2)
+            # 测试45度入射角
+            # angle_rad = -math.pi / 4
             abs_angle = abs(angle_rad)
-            # print("中性")
+            # 测试入射角度范围，下面同理
+            # print("中性粒子")
             # print(angle_rad)
-            emission_k =  1.0 / math.tan(angle_rad)
+            emission_k = 1.0 / math.tan(angle_rad)
+            emission_y = emission_y_neutral
+      
+            # # 余弦分布
+            # angle_rad = math.asin(random.random() * 2 - 1)
+            # # angle_rad = math.pi / 4
+            # abs_angle = abs(angle_rad)
+            # # print("中性")
+            # # print(angle_rad)
+            # emission_k =  1.0 / math.tan(angle_rad)
+            # emission_y =  emission_y_neutral
+
         abs_k = np.abs(emission_k)
 
-        #粒子初始位置
-        emission_y = 1
 
         #粒子初始角度确认，处理不同斜率情况
         if abs_k <= 0.1:#近似水平
             continue
         elif abs_k >= 200:#近似垂直
-            px = math.ceil(emission_x)
-            for py in range(deep_border + 1, cols):
-                if 0 <= px < rows and Si_array[px, py].existflag:
-                    clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image) # 碰撞函数
-                    if clearflag:
-                         s_image[px, py] = 25  #真空
-                    break
+            px = math.ceil(emission_x) #  向上取整
+            if left_border < px < right_border:
+                for py in range(deep_border + 1, cols):
+                    if 0 <= px < rows and Si_array[px, py].existflag:
+                        clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image) # 碰撞函数
+                        if clearflag:
+                            s_image[px, py] = 25  #真空
+                        break
+            else:
+                for py in range(vacuum + 1, cols):
+                    if 0 <= px < rows and Si_array[px, py].existflag:
+                        clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image) # 碰撞函数
+                        if clearflag:
+                            s_image[px, py] = 25  #真空
+                        break
         else:
             # 判定是否超出入射界限，后面需要改一下
             # x_intersect = (deep_border + 0.5 - emission_y)/emission_k + emission_x
@@ -660,10 +687,12 @@ def main():
             # py = deep_border
             px = int(emission_x)
             py = emission_y
+                
+            
         #运动轨迹追踪
         max_steps = 4000  # 防止无限循环
         ref_count = 0
-        count = 3
+        count = 2
         particle_direction = 1 # 初始方向向下
         for step in range(max_steps):
             # next_pos  = return_next(emission_x, 1, emission_k, px, py)
@@ -727,209 +756,33 @@ def main():
 
 
 
-    # 提取轮廓线并使用极坐标表示
+    # 提取轮廓线：从上往下扫描,再从左往右扫描
     contour_points = []
-    # 先找到中心点（作为极坐标系的原点）
-    center_x = (left_border + right_border) / 2
-    center_y = vacuum + (cols - vacuum) / 2
-    
-    # 从四个方向扫描以获得更完整的轮廓
-    # 从上到下扫描
-    for y in range(cols):
-        for x in range(rows - 1):
+    for y in range(cols):  # 遍历每一列
+        for x in range(rows - 1):  # 从上到下扫描
             if Si_array[x, y].existflag != Si_array[x + 1, y].existflag:
-                contour_points.append((x + 0.5, y))
-    
-    # 从左到右扫描
-    for x in range(rows):
-        for y in range(cols - 1):
+                contour_points.append((x + 0.5, y))  # 记录边界点
+    for x in range(rows):  # 遍历每一列
+        for y in range(cols - 1):  # 从上到下扫描
             if Si_array[x, y].existflag != Si_array[x, y + 1].existflag:
-                contour_points.append((x, y + 0.5))
+                contour_points.append((x, y + 0.5))  # 记录边界点
 
-    # 转换为极坐标
-    polar_points = []
-    for x, y in contour_points:
-        # 转换坐标系（使y轴向上为正）
-        new_x = rows - 1 - x
-        # 计算相对于中心点的偏移
-        dx = new_x - (rows - 1 - center_x)
-        dy = y - center_y
-        # 计算极坐标 (r, theta)
-        r = np.sqrt(dx*dx + dy*dy)
-        theta = np.arctan2(dy, dx)
-        polar_points.append((theta, r))
-
-    # 将极坐标点转换为numpy数组并按theta排序
-    polar_array = np.array(polar_points)
-    sort_idx = np.argsort(polar_array[:, 0])
-    polar_array = polar_array[sort_idx]
-    
-    # 处理周期性（确保theta连续）
-    # 将theta范围从[-pi, pi]调整到[0, 2pi]
-    polar_array[:, 0] = np.unwrap(polar_array[:, 0])
-    
-    # 将处理后的极坐标点转回笛卡尔坐标
+    # 坐标转换
     transformed_points = []
-    for theta, r in polar_array:
-        x = r * np.cos(theta) + (rows - 1 - center_x)
-        y = r * np.sin(theta) + center_y
-        transformed_points.append((x, y))
-    
+    for x, y in contour_points:
+        new_x = rows - 1 -x
+        transformed_points.append((new_x, y))
+
+    # 绘制轮廓点
     if transformed_points:
-        # 转换为numpy数组便于处理
         points_array = np.array(transformed_points)
-        
-        def smooth_and_interpolate_polar(polar_points, window=15):
-            """在极坐标系下进行平滑和插值，正确处理周期性边界"""
-            if len(polar_points) < 2:
-                return polar_points
+        plt.plot(points_array[:, 0], points_array[:, 1], 'ro', markersize=1, alpha=0.6, label='point')
 
-            # 确保窗口大小合适
-            window = min(window, len(polar_points) - 1)
-            if window % 2 == 0:
-                window -= 1
-            if window < 3:
-                window = 3
-
-            thetas = polar_points[:, 0]
-            rs = polar_points[:, 1]
-            
-            # 检测是否跨越±π边界
-            theta_diff = np.diff(thetas)
-            boundary_crossings = np.where(np.abs(theta_diff) > np.pi)[0]
-            
-            # 如果有边界跨越，将角度调整为连续的
-            if len(boundary_crossings) > 0:
-                # 调整角度使其连续（展开周期）
-                thetas_unwrapped = np.copy(thetas)
-                for i in range(1, len(thetas)):
-                    if np.abs(thetas_unwrapped[i] - thetas_unwrapped[i-1]) > np.pi:
-                        # 检测到周期跨越
-                        if thetas_unwrapped[i] > thetas_unwrapped[i-1]:
-                            # 从正向跨越到负向，减去2π
-                            thetas_unwrapped[i:] -= 2*np.pi
-                        else:
-                            # 从负向跨越到正向，加上2π
-                            thetas_unwrapped[i:] += 2*np.pi
-                thetas = thetas_unwrapped
-            
-            # 使用Savitzky-Golay滤波器平滑r值
-            if len(rs) >= window:
-                rs_smooth = savgol_filter(rs, window, 2)
-            else:
-                rs_smooth = rs
-
-            # 生成更密集的θ点
-            theta_dense = np.linspace(thetas.min(), thetas.max(), 
-                                    num=max(len(thetas)*5, 500))
-            
-            # 使用三次样条插值
-            try:
-                f = interp1d(thetas, rs_smooth, kind='cubic', bounds_error=False, fill_value='extrapolate')
-            except (ValueError, TypeError):
-                # 如果样本点太少，使用线性插值
-                f = interp1d(thetas, rs_smooth, kind='linear', bounds_error=False, fill_value='extrapolate')
-            
-            rs_dense = f(theta_dense)
-            
-            # 移除nan和inf值
-            valid_mask = np.isfinite(rs_dense) & (rs_dense > 0)
-            theta_dense = theta_dense[valid_mask]
-            rs_dense = rs_dense[valid_mask]
-            
-            # 如果有边界跨越，将角度转换回[-π, π]范围
-            if len(boundary_crossings) > 0:
-                theta_dense = np.angle(np.exp(1j * theta_dense))
-            
-            # 转换回笛卡尔坐标
-            x_smooth = rs_dense * np.cos(theta_dense) + (rows - 1 - center_x)
-            y_smooth = rs_dense * np.sin(theta_dense) + center_y
-            
-            return np.column_stack((x_smooth, y_smooth))
-        
-        # 创建两个子图进行对比
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
-        
-        # 旋转图像
-        rotated_image = np.rot90(s_image, -1)
-        
-        # 左图：显示原始轮廓
-        ax1.set_title('原始轮廓')
-        ax1.imshow(rotated_image, cmap='jet', vmin=0, vmax=100)
-        ax1.plot(points_array[:, 0], points_array[:, 1], 'ro', markersize=1, alpha=0.6, label='原始轮廓点')
-        ax1.legend(loc='upper right')
-        ax1.axis('equal')
-        
-        # 使用DBSCAN去除离群点（毛刺）
-        clustering = DBSCAN(eps=3.0, min_samples=2).fit(points_array)
-        labels = clustering.labels_
-        
-        # 保留非噪声点
-        mask = labels != -1
-        filtered_points = points_array[mask]
-
-        # 转换到极坐标系进行处理
-        # 使用刻蚀区域的几何中心作为极坐标原点
-        min_x = np.min(filtered_points[:, 0])
-        max_x = np.max(filtered_points[:, 0])
-        min_y = np.min(filtered_points[:, 1])
-        max_y = np.max(filtered_points[:, 1])
-        
-        # 使用刻蚀区域的中心作为极坐标原点
-        center_x = (min_x + max_x) / 2
-        center_y = (min_y + max_y) / 2
-        
-        # 转换到极坐标
-        dx = filtered_points[:, 0] - center_x
-        dy = filtered_points[:, 1] - center_y
-        r = np.sqrt(dx**2 + dy**2)
-        theta = np.arctan2(dy, dx)
-        
-        # 将点转换为极坐标形式并按theta排序
-        polar_points = np.column_stack((theta, r))
-        sort_idx = np.argsort(polar_points[:, 0])
-        polar_points = polar_points[sort_idx]
-        
-        # 检测是否有周期性边界跨越（±π处的跳变）
-        theta_vals = polar_points[:, 0]
-        theta_diff = np.diff(theta_vals)
-        boundary_mask = np.abs(theta_diff) > np.pi  # 检测大于π的跳变
-        
-        # 如果检测到边界跳变，需要特殊处理
-        if np.any(boundary_mask):
-            # 找到所有的边界跳变位置
-            boundary_indices = np.where(boundary_mask)[0]
-            
-            # 将角度展开为连续的值（处理周期性）
-            theta_unwrapped = np.copy(theta_vals)
-            for idx in boundary_indices:
-                if theta_unwrapped[idx + 1] - theta_unwrapped[idx] > np.pi:
-                    # 从大角度跳到小角度，减去2π
-                    theta_unwrapped[idx + 1:] -= 2 * np.pi
-                else:
-                    # 从小角度跳到大角度，加上2π
-                    theta_unwrapped[idx + 1:] += 2 * np.pi
-            
-            # 更新polar_points中的theta值
-            polar_points[:, 0] = theta_unwrapped
-        
-        # 设置窗口大小
-        window = 21  # 使用更大的窗口获得更平滑的效果
-        
-        # 对极坐标系下的点进行平滑处理
-        smoothed_points = smooth_and_interpolate_polar(polar_points, window=window)
-        
-        # 右图：显示平滑处理后的轮廓
-        ax2.set_title('平滑处理后的轮廓')
-        ax2.imshow(rotated_image, cmap='jet', vmin=0, vmax=100)
-        
-        # 绘制平滑后的轮廓
-        ax2.plot(smoothed_points[:, 0], smoothed_points[:, 1], '-', linewidth=0.8, color='red', alpha=0.8, label='平滑轮廓')
-        
-        ax2.legend(loc='upper right')
-        ax2.axis('equal')
-        
-        plt.tight_layout()
+    # 添加图例
+    plt.legend(loc='upper right')
+    # 顺时针旋转90度（符合常规视角：x→横向，y→纵向）
+    rotated_image = np.rot90(s_image, -1)
+    plt.imshow(rotated_image, cmap='jet', vmin=0, vmax=100)
 
 
 
@@ -937,6 +790,8 @@ def main():
     plt.axis('on')  # 隐藏坐标轴
     plt.tight_layout()
     plt.show()
+    end_time = time.perf_counter()
+    print(f"程序总运行时间: {end_time - start_time:.2f} 秒")
 
 if __name__ == "__main__":
     main()
