@@ -143,16 +143,16 @@ def reflect_prob(theta, material):
         base_prob = 0
         angle_else = max(0, 1 * (theta - math.pi/3) / (math.pi/2 - math.pi/3))
         angle_else = min(1, angle_else)
-        return base_prob + angle_else
+        # return base_prob + angle_else
         # 测试
-        # return 1.0
+        return 1.0
     elif material == 'Si':
         base_prob = 0
         angle_else = max(0, 1 * (theta - math.pi/3) / (math.pi/2 - math.pi/3))
         angle_else = min(1, angle_else)
-        return base_prob + angle_else
+        # return base_prob + angle_else
         # 测试
-        # return 1.0
+        return 1.0
     else:
         return 0.0
 
@@ -597,7 +597,7 @@ def main():
     }
 
     #模拟粒子入射
-    for cl in range(400000):
+    for cl in range(4):
         # 考虑openCD对形貌影响
         #粒子初始位置
         emission_x = left_border + random.random() * (right_border - left_border)
@@ -622,7 +622,7 @@ def main():
             angle_rad = random.gauss(0, sigma)
             angle_rad = max(min(angle_rad, math.pi/2), -math.pi/2)
             # 测试45度入射角
-            # angle_rad = -math.pi / 4
+            angle_rad = -math.pi / 4
             abs_angle = abs(angle_rad)
             # 测试入射角度范围，下面同理
             # print("离子")
@@ -725,8 +725,8 @@ def main():
                     next_pos = return_next(emission_x, emission_y, emission_k, px, py, is_reflect, particle_direction)
                     px, py = next_pos
                     # 标记粒子轨迹,画线
-                    # if px < rows and py < cols:
-                    #     s_image[px, py] = 60
+                    if px < rows and py < cols:
+                        s_image[px, py] = 60
                     continue  # 继续外部循环
                     # for step in range(max_steps):
                     #     next_pos = return_next(emission_x, emission_y, new_k, px, py, V_out[1])
@@ -750,8 +750,8 @@ def main():
                 next_pos = return_next(emission_x, emission_y, emission_k, px, py, 0, particle_direction)
                 px, py = next_pos
                 # 标记粒子轨迹，画线
-                # if px < rows and py < cols:
-                #     s_image[px, py] = 60
+                if px < rows and py < cols:
+                    s_image[px, py] = 60
 
 
 
