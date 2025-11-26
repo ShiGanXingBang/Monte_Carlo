@@ -17,75 +17,80 @@ class Si_Class:
         self.reflect_count = reflect_count
 
 #运动方向判断
-def return_next(emission_x, emission_y, emission_k, px, py, is_reflect, direction=1):
-    # 向下方运动
+def return_next(emission_x, emission_y, emission_k, px, py, is_reflect, direction=1, rows=None, cols=None):
+    """计算下一步格点位置并在越界时从对面等高位置返回（环绕）。
+
+    参数:
+        emission_x, emission_y, emission_k: 入射光线参数（浮点）
+        px, py: 当前格点坐标（整数）
+        is_reflect: 是否处于反射运动分支
+        direction: 运动方向，1 向下，-1 向上
+        rows, cols: 网格尺寸（可选），提供则在返回前做模运算环绕
+    返回:
+        [nx, ny] 下一个格点坐标（已环绕到边界内）
+    """
+    # 根据当前运动分支和斜率计算 nx, ny
     if is_reflect:
         if direction >= 0:
-                #向右下运动
-                if emission_k > 0:
-                        return [px + 1, py+1]
-                #向左下运动
-                elif emission_k < 0:
-                        return [px - 1, py + 1]
-                #垂直向下 k=0
-                else:
-                    return [px, py + 1]
+            if emission_k > 0:
+                nx, ny = px + 1, py + 1
+            elif emission_k < 0:
+                nx, ny = px - 1, py + 1
+            else:
+                nx, ny = px, py + 1
         else:
             if emission_k > 0:
                 y = emission_y + emission_k * ((px - 0.5) - emission_x)
-                #向左上运动
                 if y <= py - 0.5:
-                    return [px, py - 1]
+                    nx, ny = px, py - 1
                 else:
-                    return [px - 1, py]
-            #向右上运动
+                    nx, ny = px - 1, py
             elif emission_k < 0:
                 y = emission_y + emission_k * ((px + 0.5) - emission_x)
                 if y <= py - 0.5:
-                    return [px, py - 1]
+                    nx, ny = px, py - 1
                 else:
-                    return [px + 1, py]
-            #垂直向下 k=0
+                    nx, ny = px + 1, py
             else:
-                return [px, py - 1]
+                nx, ny = px, py - 1
     else:
         if direction >= 0:
-            #向右下运动
             if emission_k > 0:
                 y = emission_y + emission_k * ((px + 0.5) - emission_x)
-                #向右运动
-                if y <= py +0.5:
-                    return [px + 1, py]
+                if y <= py + 0.5:
+                    nx, ny = px + 1, py
                 else:
-                    return [px, py + 1]
-            #向左下运动
+                    nx, ny = px, py + 1
             elif emission_k < 0:
                 y = emission_y + emission_k * ((px - 0.5) - emission_x)
                 if y <= py + 0.5:
-                    return [px - 1, py]
+                    nx, ny = px - 1, py
                 else:
-                    return [px, py + 1]
-            #垂直向下 k=0
+                    nx, ny = px, py + 1
             else:
-                return [px, py + 1]
+                nx, ny = px, py + 1
         else:
             if emission_k > 0:
                 y = emission_y + emission_k * ((px - 0.5) - emission_x)
-                #向左上运动
                 if y <= py - 0.5:
-                    return [px, py - 1]
+                    nx, ny = px, py - 1
                 else:
-                    return [px - 1, py]
-            #向右上运动
+                    nx, ny = px - 1, py
             elif emission_k < 0:
                 y = emission_y + emission_k * ((px + 0.5) - emission_x)
                 if y <= py - 0.5:
-                    return [px, py - 1]
+                    nx, ny = px, py - 1
                 else:
-                    return [px + 1, py]
-            #垂直向下 k=0
+                    nx, ny = px + 1, py
             else:
-                return [px, py - 1]
+                nx, ny = px, py - 1
+
+    # 如果提供了网格尺寸，则进行环绕（从对面等高处重新射回来）
+    if rows is not None and cols is not None:
+        nx = int(nx) % int(rows)
+        ny = int(ny) % int(cols)
+
+    return [nx, ny]
 
 
 # 计算YSi/Cl+,刻蚀产额
@@ -418,7 +423,7 @@ def function_angle(Si_array, px, py, k, direction = 1, left_border = 350):
                 V_in = np.array([direction / k, direction])
 
             V_in = V_in / np.linalg.norm(V_in)
-            print('v_in:',V_in)
+            # print('v_in:',V_in)
 
             # 获取法线向量和反射向量- 添加安全检查
             result = reflector_face(Si_array, px, py, n=4)
@@ -430,7 +435,7 @@ def function_angle(Si_array, px, py, k, direction = 1, left_border = 350):
                     N = np.array([-1, 0]) # 拟合失败则返回默认值
             else:
                 _, N = result
-                print('N:',result[1])
+                # print('N:',result[1])
             abs_angle = calculate_acute_angle(V_in, N)
             return abs_angle
         
@@ -452,7 +457,7 @@ def reflect_angle(Si_array, px, py, k, direction = 1, left_border = 350):
                 V_in = np.array([direction / k, direction])
 
             V_in = V_in / np.linalg.norm(V_in)
-            print('v_in:',V_in)
+            # print('v_in:',V_in)
 
             # 获取法线向量和反射向量- 添加安全检查
             result = reflector_face(Si_array, px, py, n=4)
@@ -464,15 +469,15 @@ def reflect_angle(Si_array, px, py, k, direction = 1, left_border = 350):
                     N = np.array([-1, 0]) # 拟合失败则返回默认值
             else:
                 _, N = result
-                print('N:',result[1])
+                # print('N:',result[1])
             abs_angle = calculate_acute_angle(V_in, N)
             reflext_prob = reflect_prob(abs_angle, Si_array[px, py].material_type)
-            print('abs_angle:',abs_angle)
+            # print('abs_angle:',abs_angle)
 
             if random.random() < reflext_prob:
                 # 计算反射向量
                 V_out = V_in - 2 * (np.dot(V_in, N)) * N
-                print('V_out:',V_out)
+                # print('V_out:',V_out)
  
                 # 计算反射斜率
                 if abs(V_out[0]) < 1e-10:  # 避免除零错误
@@ -548,7 +553,7 @@ def reflect_angle(Si_array, px, py, k, direction = 1, left_border = 350):
                 # V_out_New = np.array([-direction / reflect_k, -direction])   
                 # V_out_New = V_out_New / np.linalg.norm(V_out_New) 
                 # print('V_out_New:',V_out_New)
-                print('------')
+                # print('------')
                 # 更新状态
                 is_reflect_flag = 1
                 
@@ -619,8 +624,8 @@ def main():
     vacuum = 50
     rows = 800
     cols = 700
-    left_border = 200
-    right_border = 600
+    left_border = 300
+    right_border = 500
     deep_border = 200
     start_time = time.perf_counter()
     # 掩膜角度fa
@@ -683,13 +688,13 @@ def main():
     }
 
     #模拟粒子入射
-    for cl in range(5):
+    for cl in range(450000):
         # 考虑openCD对形貌影响
         #粒子初始位置
         # emission_x = left_border + random.random() * (right_border - left_border)
-        # emission_x = random.random() * (rows - 1)
+        emission_x = random.random() * (rows - 1)
         # emission_x = left_border - 10
-        emission_x = right_border + 10
+        # emission_x = right_border + 10
 
         emission_y_Ion = 1
         emission_y_neutral =  1
@@ -814,11 +819,11 @@ def main():
                     # plt.pause(0.1)  # 暂停一小段时间以便观察
 
                     # 使用正确的方向参数调用return_next
-                    next_pos = return_next(emission_x, emission_y, emission_k, px, py, is_reflect, particle_direction)
+                    next_pos = return_next(emission_x, emission_y, emission_k, px, py, is_reflect, particle_direction, rows, cols)
                     px, py = next_pos
                     # 标记粒子轨迹,画线
-                    if px < rows and py < cols:
-                        s_image[px, py] = 60
+                    # if px < rows and py < cols:
+                    #     s_image[px, py] = 60
                     continue  # 继续外部循环
                     # for step in range(max_steps):
                     #     next_pos = return_next(emission_x, emission_y, new_k, px, py, V_out[1])
@@ -840,11 +845,11 @@ def main():
                         s_image[px, py] = 25
                     break
             else:
-                next_pos = return_next(emission_x, emission_y, emission_k, px, py, 0, particle_direction)
+                next_pos = return_next(emission_x, emission_y, emission_k, px, py, 0, particle_direction, rows, cols)
                 px, py = next_pos
                 # 标记粒子轨迹，画线
-                if px < rows and py < cols:
-                    s_image[px, py] = 60
+                # if px < rows and py < cols:
+                #     s_image[px, py] = 60
 
 
 
