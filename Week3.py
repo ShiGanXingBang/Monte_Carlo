@@ -286,7 +286,7 @@ def main():
     # 入射开口限幅
     if deep_border * k_img > rows / 6:
         k_img = (rows - right_border - 1) / (deep_border * 3)
-    #初始化图像数组
+    # 初始化图像数组
     s_image = np.ones((rows, cols))
     # 初始化真空界面
     for y in range(vacuum):
