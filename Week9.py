@@ -86,8 +86,8 @@ def return_next(emission_x, emission_y, emission_k, px, py, is_reflect, directio
                 nx, ny = px, py - 1
 
     # 如果提供了网格尺寸，则进行环绕（从对面等高处重新射回来）
-    if rows is not None and cols is not None:
-        nx = int(nx) % int(rows) # X轴（左右）可以环绕
+    # if rows is not None and cols is not None:
+    #     nx = int(nx) % int(rows) # X轴（左右）可以环绕
         # ny = int(ny) % int(cols) # Y轴（上下）绝对不要环绕！
 
     return [nx, ny]
@@ -144,16 +144,17 @@ def chain_reaction(Si_array, px, py, Ysicl, s_image):
 
 # 掩膜和衬底反射概率
 def reflect_prob(theta, material):
+    threshold = math.pi/6
     if material == 'Hardmask':
         base_prob = 0
-        angle_else = max(0, 1 * (theta - math.pi/3) / (math.pi/2 - math.pi/3))
+        angle_else = max(0, 1 * (theta - threshold) / (math.pi/2 - threshold))
         angle_else = min(1, angle_else)
         return base_prob + angle_else
         # 测试
         # return 1.0
     elif material == 'Si':
         base_prob = 0
-        angle_else = max(0, 1 * (theta - math.pi/3) / (math.pi/2 - math.pi/3))
+        angle_else = max(0, 1 * (theta - threshold) / (math.pi/2 - threshold))
         angle_else = min(1, angle_else)
         return base_prob + angle_else
         # 测试
@@ -457,7 +458,7 @@ def reflect_angle(Si_array, px, py, k, species, direction = 1, left_border = 350
                 V_in = np.array([direction / k, direction])
 
             V_in = V_in / np.linalg.norm(V_in)
-            print('v_in:',V_in)
+            # print('v_in:',V_in)
 
             # 获取法线向量和反射向量- 添加安全检查
             result = reflector_face(Si_array, px, py, n=4)
@@ -469,7 +470,7 @@ def reflect_angle(Si_array, px, py, k, species, direction = 1, left_border = 350
                     N = np.array([-1, 0]) # 拟合失败则返回默认值
             else:
                 _, N = result
-                print('N:',result[1])
+                # print('N:',result[1])
             abs_angle = calculate_acute_angle(V_in, N)
             reflext_prob = reflect_prob(abs_angle, Si_array[px, py].material_type)
             # print('abs_angle:',abs_angle)
@@ -477,7 +478,7 @@ def reflect_angle(Si_array, px, py, k, species, direction = 1, left_border = 350
             if random.random() < reflext_prob:
                 # 计算反射向量
                 V_out = V_in - 2 * (np.dot(V_in, N)) * N
-                print('V_out:',V_out)
+                # print('V_out:',V_out)
  
                 # 计算反射斜率
                 if abs(V_out[0]) < 1e-10:  # 避免除零错误
@@ -641,6 +642,7 @@ def main():
     left_border = 300
     right_border = 500
     deep_border = 200
+    count_num = 0
     start_time = time.perf_counter()
     # 掩膜角度fa
     # angle_img = abs(3)
@@ -703,6 +705,10 @@ def main():
 
     #模拟粒子入射
     for cl in range(200000):
+        count_num += 1
+        if count_num %50000 == 0:
+            print(f"当前循环次数为{count_num}")
+
         # 考虑openCD对形貌影响
         #粒子初始位置
         # emission_x = left_border + random.random() * (right_border - left_border)
@@ -836,8 +842,8 @@ def main():
                     next_pos = return_next(emission_x, emission_y, emission_k, px, py, is_reflect, particle_direction, rows, cols)
                     px, py = next_pos
                     # 标记粒子轨迹,画线
-                    if px < rows and py < cols:
-                        s_image[px, py] = 60
+                    # if px < rows and py < cols:
+                    #     s_image[px, py] = 60
                     continue  # 继续外部循环
                     # for step in range(max_steps):
                     #     next_pos = return_next(emission_x, emission_y, new_k, px, py, V_out[1])
@@ -862,8 +868,8 @@ def main():
                 next_pos = return_next(emission_x, emission_y, emission_k, px, py, 0, particle_direction, rows, cols)
                 px, py = next_pos
                 # 标记粒子轨迹，画线
-                if px < rows and py < cols:
-                    s_image[px, py] = 60
+                # if px < rows and py < cols:
+                #     s_image[px, py] = 60
 
 
     # 提取轮廓线：从上往下扫描,再从左往右扫描
