@@ -86,8 +86,8 @@ def return_next(emission_x, emission_y, emission_k, px, py, is_reflect, directio
                 nx, ny = px, py - 1
 
     # 如果提供了网格尺寸，则进行环绕（从对面等高处重新射回来）
-    # if rows is not None and cols is not None:
-    #     nx = int(nx) % int(rows) # X轴（左右）可以环绕
+    if rows is not None and cols is not None:
+        nx = int(nx) % int(rows) # X轴（左右）可以环绕
         # ny = int(ny) % int(cols) # Y轴（上下）绝对不要环绕！
 
     return [nx, ny]
@@ -643,6 +643,20 @@ def main():
     right_border = 500
     deep_border = 200
     count_num = 0
+    # 粒子总数
+    C1 = 1
+    P = 200000
+    Total_nums = C1 * P
+    # 通量比中性粒子比原子
+    C2 = 1
+    PW = 11 / 10
+    Ratio = C2 / PW
+    # 能量与反应概率
+    C3 = 1
+    # 偏移电压大小
+    V_bias = 1
+    E = C3 * V_bias
+
     start_time = time.perf_counter()
     # 掩膜角度fa
     # angle_img = abs(3)
@@ -704,7 +718,7 @@ def main():
     }
 
     #模拟粒子入射
-    for cl in range(200000):
+    for cl in range(Total_nums):
         count_num += 1
         if count_num %50000 == 0:
             print(f"当前循环次数为{count_num}")
@@ -721,7 +735,7 @@ def main():
         
         # 测试入射角度45度的时候改了一下入射范围
         # emission_x = left_border + random.random() * (right_border - left_border) / 2
-        species = random.random() > (10/11)
+        species = random.random() > Ratio
 
         # species = 0
         # emission_theta = (random.random()-0.5) * math.pi
