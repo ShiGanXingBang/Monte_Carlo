@@ -645,7 +645,7 @@ def main():
     count_num = 0
     # 粒子总数
     C1 = 1
-    P = 200000
+    P = 400000
     Total_nums = C1 * P
     # 通量比中性粒子比原子
     C2 = 1
