@@ -143,20 +143,36 @@ def chain_reaction(Si_array, px, py, Ysicl, s_image):
 
 
 # 掩膜和衬底反射概率
-def reflect_prob(theta, material):
-    threshold = math.pi/6
+def reflect_prob(theta, material, species):
+    threshold = math.pi/3
     if material == 'Hardmask':
-        base_prob = 0
-        angle_else = max(0, 1 * (theta - threshold) / (math.pi/2 - threshold))
-        angle_else = min(1, angle_else)
-        return base_prob + angle_else
+        # 离子
+        if species == 1:           
+            base_prob = 0
+            angle_else = max(0, 1 * (theta - threshold) / (math.pi/2 - threshold))
+            angle_else = min(1, angle_else)
+            return base_prob + angle_else
+        # 中性粒子漫反射
+        elif species == 0:
+            angle_else = random.random()
+            return angle_else
+        else:
+            return 0.0
         # 测试
         # return 1.0
     elif material == 'Si':
-        base_prob = 0
-        angle_else = max(0, 1 * (theta - threshold) / (math.pi/2 - threshold))
-        angle_else = min(1, angle_else)
-        return base_prob + angle_else
+        # 离子
+        if species == 1:           
+            base_prob = 0
+            angle_else = max(0, 1 * (theta - threshold) / (math.pi/2 - threshold))
+            angle_else = min(1, angle_else)
+            return base_prob + angle_else
+        # 中性粒子漫反射
+        elif species == 0:          
+            angle_else = random.random()
+            return angle_else
+        else:
+            return 0.0
         # 测试
         # return 1.0
     else:
@@ -472,7 +488,7 @@ def reflect_angle(Si_array, px, py, k, species, direction = 1, left_border = 350
                 _, N = result
                 # print('N:',result[1])
             abs_angle = calculate_acute_angle(V_in, N)
-            reflext_prob = reflect_prob(abs_angle, Si_array[px, py].material_type)
+            reflext_prob = reflect_prob(abs_angle, Si_array[px, py].material_type, species)
             # print('abs_angle:',abs_angle)
 
             if random.random() < reflext_prob:
@@ -645,11 +661,11 @@ def main():
     count_num = 0
     # 粒子总数
     C1 = 1
-    P = 400000
+    P = 800000
     Total_nums = C1 * P
     # 通量比中性粒子比原子
     C2 = 1
-    PW = 11 / 10
+    PW = 21 / 20
     Ratio = C2 / PW
     # 能量与反应概率
     C3 = 1
@@ -823,7 +839,7 @@ def main():
         #运动轨迹追踪
         max_steps = 4000  # 防止无限循环
         ref_count = 0
-        count = 2
+        count = 1
         particle_direction = 1 # 初始方向向下
         for step in range(max_steps):
             # next_pos  = return_next(emission_x, 1, emission_k, px, py)
@@ -832,7 +848,7 @@ def main():
                 break
             if Si_array[px, py].existflag:
                 # 检查反射
-                # ref_prob = reflect_prob(abs_angle, Si_array[px, py].material_type)
+                # ref_prob = reflect_prob(abs_angle, Si_array[px, py].material_type, species)
                 is_reflect, new_k, V_out= reflect_angle(Si_array, px, py, emission_k, species, particle_direction)
                 #反射次数计数
                 if is_reflect and ref_count < count:
