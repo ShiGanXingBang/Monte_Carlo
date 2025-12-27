@@ -240,6 +240,10 @@ Gemini还是注册不了学生版的，已经有了纯净IP，应该是注册的
 
 用国科大的IP搜索effect Bosch etching总闪退或者出现各种问题，在IEEE和上面，删除cookie或是无痕浏览并没有什么用处，关掉vpn也是。
 
+### 2025.12.27
+
+最近在复习英语考试，对于后面要做的东西有一些想法了。
+
 ## Test
 
 `printf(Hello,world)`
