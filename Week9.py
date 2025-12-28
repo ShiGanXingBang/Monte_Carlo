@@ -653,15 +653,15 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
 def main():
     # 数据层面上初始化仿真界面
     vacuum = 50
-    rows = 800
-    cols = 700
+    rows = 1000      # 宽度
+    cols = 2000     # 深度
     left_border = 300
-    right_border = 500
+    right_border = 700
     deep_border = 200
     count_num = 0
     # 粒子总数
     C1 = 1
-    P = 800000
+    P = 3000000
     Total_nums = C1 * P
     # 通量比中性粒子比原子
     C2 = 1
