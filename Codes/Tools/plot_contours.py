@@ -33,7 +33,7 @@ import sys
 def main():
     # 这块的整体流程还不是很懂
     parser = argparse.ArgumentParser(description="Plot contour CSV files from a folder")
-    parser.add_argument('-d', '--dir', default='Csv', help='directory containing contour_*.csv files')
+    parser.add_argument('-d', '--dir', default='Csv/test1', help='directory containing contour_*.csv files')
     parser.add_argument('-o', '--out', default=os.path.join('Picture','contours_plot.png'), help='output image path')
     parser.add_argument('-f', '--file', help='single CSV file name or path to plot (overrides pattern)')
     parser.add_argument('--show', action='store_true', help='also show the plot interactively')
@@ -101,10 +101,9 @@ def main():
         x = df['x'].astype(float)
         y = df['y'].astype(float)
 
-        # 绘制：线 + 半透明点，便于观察重叠
+        # 只绘制点，不绘制连线
         color = cmap(idx % 10)
-        ax.plot(x, y, '-', color=color, linewidth=0.8, alpha=0.9, label=os.path.basename(f))
-        ax.scatter(x, y, s=4, color=color, alpha=0.4)
+        ax.scatter(x, y, s=4, color=color, alpha=0.8, label=os.path.basename(f))
 
     ax.set_xlabel('x')
     ax.set_ylabel('y')

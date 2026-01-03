@@ -133,8 +133,13 @@ def reflect_prob(theta, material, species):
             angle_else = min(1, angle_else)
             return base_prob + angle_else
         elif species == 0:
-            angle_else = random.random()
-            return angle_else
+            # 漫反射
+            # angle_else = random.random()
+            # return angle_else
+            base_prob = 0
+            angle_else = max(0, 1 * (theta - threshold) / (math.pi/2 - threshold))
+            angle_else = min(1, angle_else)
+            return base_prob + angle_else
         else:
             return 0.0
     elif material == 'Si':
@@ -144,8 +149,13 @@ def reflect_prob(theta, material, species):
             angle_else = min(1, angle_else)
             return base_prob + angle_else
         elif species == 0:          
-            angle_else = random.random()
-            return angle_else
+            # 漫反射
+            # angle_else = random.random()
+            # return angle_else
+            base_prob = 0
+            angle_else = max(0, 1 * (theta - threshold) / (math.pi/2 - threshold))
+            angle_else = min(1, angle_else)
+            return base_prob + angle_else
         else:
             return 0.0
     else:
@@ -280,7 +290,7 @@ def function_angle(Si_array, px, py, k, direction = 1, left_border = 350):
                 _, N = result
             abs_angle = calculate_acute_angle(V_in, N)
             return abs_angle
-        
+# 反射角度        
 def reflect_angle(Si_array, px, py, k, species, direction = 1, left_border = 350):
     is_reflect_flag = 0
     reflect_k = k
@@ -313,16 +323,17 @@ def reflect_angle(Si_array, px, py, k, species, direction = 1, left_border = 350
                 else:
                     reflect_k = V_out[1] / V_out[0]
                 
-                if species == 0:
-                    current_reflect_angle = math.atan2(N[1], N[0]) 
-                    angle_increment = (random.random()-0.5) * (math.pi / 2) 
-                    new_reflect_angle = current_reflect_angle + angle_increment
-                    if abs(abs(new_reflect_angle) - math.pi/2) < 1e-9:
-                        reflect_k = 999.0
-                    else:
-                        reflect_k = math.tan(new_reflect_angle)
-                    V_out = np.array([-direction / reflect_k, -direction])   
-                    V_out = V_out / np.linalg.norm(V_out) 
+                # 中性粒子漫反射机制
+                # if species == 0:
+                #     current_reflect_angle = math.atan2(N[1], N[0]) 
+                #     angle_increment = (random.random()-0.5) * (math.pi / 2) 
+                #     new_reflect_angle = current_reflect_angle + angle_increment
+                #     if abs(abs(new_reflect_angle) - math.pi/2) < 1e-9:
+                #         reflect_k = 999.0
+                #     else:
+                #         reflect_k = math.tan(new_reflect_angle)
+                #     V_out = np.array([-direction / reflect_k, -direction])   
+                #     V_out = V_out / np.linalg.norm(V_out) 
 
                 is_reflect_flag = 1
                 return is_reflect_flag, reflect_k, V_out
@@ -345,7 +356,7 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
     if Si_array[px, py].material_type == 'Si':
         prob = reaction_probabilities[Count][particle_type]
     elif Si_array[px, py].material_type == 'Hardmask':
-        prob = reaction_probabilities[Count][particle_type] * 0.1
+        prob = reaction_probabilities[Count][particle_type] * 0.02
 
     clearflag = False
     if species == 1 and random.random() < prob * Ysicl:
@@ -370,23 +381,19 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
 def extract_and_transform_contour(Si_array, rows, cols):
     """提取当前的轮廓点，并转换为绘图坐标系 (rows-1-x, y)"""
     contour_points = []
-    # 从上往下扫描
-    for y in range(cols):
-        for x in range(rows - 1):
+    for y in range(cols):  # 遍历每一列
+        for x in range(rows - 1):  # 从上到下扫描
             if Si_array[x, y].existflag != Si_array[x + 1, y].existflag:
-                contour_points.append((x + 0.5, y))
-    
-    # 从左往右扫描
-    for x in range(rows):
-        for y in range(cols - 1):
+                contour_points.append((x + 0.5, y))  # 记录边界点
+    for x in range(rows):  # 遍历每一列
+        for y in range(cols - 1):  # 从上到下扫描
             if Si_array[x, y].existflag != Si_array[x, y + 1].existflag:
-                contour_points.append((x, y + 0.5))
+                contour_points.append((x, y + 0.5))  # 记录边界点
 
-    # 坐标转换：将数组坐标转换为可视化的 Plot 坐标
-    # 原逻辑：new_x = rows - 1 - x
+    # 坐标转换
     transformed_points = []
     for x, y in contour_points:
-        new_x = rows - 1 - x
+        new_x = rows - 1 -x
         transformed_points.append((new_x, y))
     
     return transformed_points
@@ -402,14 +409,14 @@ def save_contour_to_csv(points, filepath):
 def main():
     vacuum = 50
     rows = 800
-    cols = 700
-    left_border = 300
-    right_border = 500
+    cols = 1000
+    left_border = 200
+    right_border = 600
     deep_border = 200
     count_num = 0
     # 粒子总数
     C1 = 1
-    P = 400000
+    P = 1500000
     Total_nums = C1 * P
     C2 = 1
     PW = 21 / 20
@@ -468,8 +475,8 @@ def main():
     for cl in range(Total_nums):
         count_num += 1
         
-        # ==================== 修改：每50000次保存一次CSV ====================
-        if count_num % 100000 == 0:
+        # ==================== 修改：每10000次保存一次CSV ====================
+        if count_num % 250000 == 0:
             print(f"当前循环次数为{count_num}，正在保存轮廓...")
             # 提取转换后的轮廓点
             current_contour = extract_and_transform_contour(Si_array, rows, cols)
@@ -555,25 +562,22 @@ def main():
                 px, py = next_pos
 
 
-    # ==================== 绘制最终图像与历史轮廓 ====================
-    # 1. 绘制背景图 (仿真最终结果)
+    # ==================== 绘制历史轮廓（点）+ 最终轮廓（着色） ====================
+    # 用最终的 s_image 着色（仿真结果）
     rotated_image = np.rot90(s_image, -1)
     plt.imshow(rotated_image, cmap='jet', vmin=0, vmax=100)
     
-    # 2. 读取并绘制所有 CSV 轮廓
-    # 获取所有csv文件
+    # 读取并绘制所有 CSV 轮廓（历史轨迹）
     csv_files = glob.glob(os.path.join(SAVE_DIR, "contour_*.csv"))
     
-    # 按数字大小排序 (防止 100 排在 20 前面)
-    # 假设文件名格式固定为 contour_xxx.csv
+    # 按数字大小排序
     try:
         csv_files.sort(key=lambda x: int(os.path.basename(x).split('_')[1].split('.')[0]))
     except:
-        csv_files.sort() # 备用排序
+        csv_files.sort()
 
     # 使用颜色映射表，让不同时间的轮廓显示不同颜色
-    # 例如：从浅色到深色，或彩虹色
-    colors = plt.cm.spring(np.linspace(0, 1, len(csv_files)))
+    # colors = plt.cm.spring(np.linspace(0, 1, len(csv_files)))
 
     print(f"开始绘制 {len(csv_files)} 条历史轮廓线...")
     
@@ -590,24 +594,22 @@ def main():
                         x_data.append(float(row[0]))
                         y_data.append(float(row[1]))
             
-            # 绘制轮廓
-            # alpha=0.6 让线条半透明，避免遮挡太严重
-            # markersize=0.5 只画小点，或者使用 '-' 画线
-            plt.plot(x_data, y_data, linestyle='-', linewidth=0.8, color=colors[idx], alpha=0.7, label=f"Step {idx*50000+50000}")
+            # 绘制历史轮廓的点
+            # plt.scatter(x_data, y_data, s=2, color=colors[idx], alpha=0.8)
+            plt.scatter(x_data, y_data, s=2, color='red', alpha=0.8)
+
         except Exception as e:
             print(f"读取文件 {filepath} 出错: {e}")
 
-    # 绘制最终的轮廓点 (红点) - 保持原有逻辑
+    # 绘制最终的轮廓点（边界线，白色）
     final_contour = extract_and_transform_contour(Si_array, rows, cols)
     if final_contour:
         points_array = np.array(final_contour)
-        plt.plot(points_array[:, 0], points_array[:, 1], 'ro', markersize=1, alpha=0.6, label='Final')
+        plt.scatter(points_array[:, 0], points_array[:, 1], s=2, color='white', alpha=0.8)
 
-    # 添加图例 (如果轮廓太多，图例会很长，可视情况注释掉)
-    # plt.legend(loc='upper right', fontsize='small')
-    
+    plt.title('Final Contour with Area Coloring and History Contours')
     plt.axis('equal')
-    plt.axis('on')  
+    plt.axis('on')
     plt.tight_layout()
     plt.show()
     # =============================================================
