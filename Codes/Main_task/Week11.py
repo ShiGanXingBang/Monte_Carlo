@@ -15,7 +15,7 @@ matplotlib.use('TkAgg')  # 或者 'Qt5Agg', 'Agg' 等
 
 # ================= 配置路径 =================
 # CSV 保存路径 (使用 r'' 原始字符串防止转义问题)
-SAVE_DIR = r"E:\MachineLearning\data\py\Monte_Carlo\Monte_Carlo\Csv\Test13_CD400_20W_P0.3_Flux0.001"
+SAVE_DIR = r"E:\MachineLearning\data\py\Monte_Carlo\Monte_Carlo\Csv\Test14"
 
 # 确保文件夹存在
 if not os.path.exists(SAVE_DIR):
@@ -160,39 +160,55 @@ def chain_reaction(Si_array, px, py, Ysicl, s_image):
 
 # 掩膜和衬底反射概率
 def reflect_prob(theta, material, species):
-    threshold = math.pi/3
     if material == 'Hardmask':
-        # 离子
-        if species == 1:           
-            base_prob = 0
-            angle_else = max(0, 1 * (theta - threshold) / (math.pi/2 - threshold))
-            angle_else = min(1, angle_else)
-            return base_prob + angle_else
-        # 中性粒子漫反射
-        elif species == 0:
-            angle_else = random.random()
-            return angle_else
-        else:
-            return 0.0
+        base_prob = 0
+        angle_else = max(0, 1 * (theta - math.pi/3) / (math.pi/2 - math.pi/3))
+        angle_else = min(1, angle_else)
+        return base_prob + angle_else
         # 测试
         # return 1.0
     elif material == 'Si':
-        # 离子
-        if species == 1:           
-            base_prob = 0
-            angle_else = max(0, 1 * (theta - threshold) / (math.pi/2 - threshold))
-            angle_else = min(1, angle_else)
-            return base_prob + angle_else
-        # 中性粒子漫反射
-        elif species == 0:          
-            angle_else = random.random()
-            return angle_else
-        else:
-            return 0.0
+        base_prob = 0
+        angle_else = max(0, 1 * (theta - math.pi/3) / (math.pi/2 - math.pi/3))
+        angle_else = min(1, angle_else)
+        return base_prob + angle_else
         # 测试
         # return 1.0
     else:
         return 0.0
+    # threshold = math.pi/3
+    # if material == 'Hardmask':
+    #     # 离子
+    #     if species == 1:           
+    #         base_prob = 0
+    #         angle_else = max(0, 1 * (theta - threshold) / (math.pi/2 - threshold))
+    #         angle_else = min(1, angle_else)
+    #         return base_prob + angle_else
+    #     # 中性粒子漫反射
+    #     elif species == 0:
+    #         angle_else = random.random()
+    #         return angle_else
+    #     else:
+    #         return 0.0
+    #     # 测试
+    #     # return 1.0
+    # elif material == 'Si':
+    #     # 离子
+    #     if species == 1:           
+    #         base_prob = 0
+    #         angle_else = max(0, 1 * (theta - threshold) / (math.pi/2 - threshold))
+    #         angle_else = min(1, angle_else)
+    #         return base_prob + angle_else
+    #     # 中性粒子漫反射
+    #     elif species == 0:          
+    #         angle_else = random.random()
+    #         return angle_else
+    #     else:
+    #         return 0.0
+    #     # 测试
+    #     # return 1.0
+    # else:
+    #     return 0.0
 
 
 # 生成反射面
@@ -629,7 +645,7 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
         cos6 = cos_theta**6
         # 计算物理溅射函数
         Prob_phy = 0.4 * (18.7*cos_theta - 64.7*cos2 + 145.2*cos3 
-                        - 206*cos4 + 147.3*cos5 - 39.9*cos6)
+                        - 206*cos4 + 147.3*cos5 - 39.9*cos6) * 0.5 # 0.5是调整项
     # 中性粒子
     else:
         particle_type = 'Cl*'
@@ -641,16 +657,19 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
         flag_phy = 1       
     elif Si_array[px, py].material_type == 'Hardmask':
         Prob_che = reaction_probabilities[Count][particle_type] * 0.02
-        flag_phy = 0
+        flag_phy = 0.02
 
     #4+1的逻辑
     # if Si_array[px, py].CountCl == 4 and species == 1:#和活性种复合过四次且被氯离子冲击过
         # Si_array[px, py].existflag = False
     clearflag = False
     
+    # 离子反应（粒子增强的化学刻蚀 + 简单的离子增强溅射）
+    # if (species == 1 and random.random() < Prob_che * Ysicl) or (Si_array[px, py].material_type == 'Si' and random.random() < 0.3):
     # 离子反应（粒子增强的化学刻蚀 + 物理溅射）
-    # if (species == 1 and random.random() < prob * Ysicl) or (Si_array[px, py].material_type == 'Si' and random.random() < 0.3):
-    if (species == 1 and random.random() < (1 - W_phy) * Prob_che * Ysicl + W_phy * flag_phy * Prob_phy):
+    # if (species == 1 and random.random() < (1 - W_phy) * Prob_che * Ysicl + W_phy * flag_phy * Prob_phy):
+    # 离子反应（粒子增强的化学刻蚀）
+    if (species == 1 and random.random() < Prob_che * Ysicl):
         clearflag = True
     # 中性粒子
     elif species == 0 and random.random() < Prob_che:
@@ -671,9 +690,7 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
 
 
     Si_array[px, py].existflag = not clearflag
-    return clearflag
-
-# ==================== 新增功能：提取轮廓并转换坐标 ====================
+    return clearflag# ==================== 新增功能：提取轮廓并转换坐标 ====================
 def extract_and_transform_contour(Si_array, rows, cols):
     """提取当前的轮廓点，并转换为绘图坐标系 (rows-1-x, y)"""
     contour_points = []
@@ -703,6 +720,8 @@ def save_contour_to_csv(points, filepath):
 # ===================================================================
 
 
+
+
 # 最简单的实现方式：
 # def simple_angle_emission():
 #     """最简单的角度生成方案"""
@@ -718,15 +737,15 @@ def save_contour_to_csv(points, filepath):
 def main():
     # 数据层面上初始化仿真界面
     vacuum = 50
-    rows = 1000      # 宽度
+    rows = 800      # 宽度
     cols = 2000     # 深度
     left_border = 300
-    right_border = 700
+    right_border = 500
     deep_border = 200
     count_num = 0
     # 粒子总数
     C1 = 1
-    P = 2000000
+    P = 200000
     Total_nums = C1 * P
     # 通量比中性粒子比原子
     C2 = 1
@@ -739,9 +758,9 @@ def main():
     E = C3 * V_bias
 
     start_time = time.perf_counter()
-    # 掩膜角度fa
+    # 掩膜角度
     # angle_img = abs(3)
-    angle_img = abs(30 * math.pi/90)
+    angle_img = abs(5 * math.pi/90)
     Si_array = np.empty(shape=(rows,cols), dtype=object)
     # 数据初始化整合到下面的图形初始化里面了，一块初始化
     for i in range(rows):
@@ -758,6 +777,7 @@ def main():
     # angle_img = abs(math.asin(2 * random.random() - 1))
     # angle_img = abs(math.asin(0))
     k_img = abs(math.tan(angle_img))
+    
     # 入射开口限幅
     if deep_border * k_img > rows / 6:
         k_img = (rows - right_border - 1) / (deep_border * 3)
@@ -768,6 +788,7 @@ def main():
         for x in range(rows):
             if Si_array[x, y].existflag == False:
                 s_image[x, y] = 25  # 真空
+    
     # 初始化掩膜界面
     for y in range(vacuum, deep_border):
         offset = int((deep_border - y) * k_img) # 偏移量
@@ -814,11 +835,11 @@ def main():
             save_contour_to_csv(current_contour, filepath)
         # ===================================================================
 
-
         # 考虑openCD对形貌影响
         #粒子初始位置
-        # emission_x = left_border + random.random() * (right_border - left_border)
-        emission_x = random.random() * (rows - 1)
+        emission_x = left_border + random.random() * (right_border - left_border)
+        # 入射粒子入射范围更大一点
+        # emission_x = random.random() * (rows - 1)
         # emission_x = left_border + 70
         # emission_x = right_border + 10
 
@@ -965,7 +986,7 @@ def main():
                     #         break  # 跳出循环
                     # break
                 else:  # 处理碰撞反应
-                    function_angle(Si_array, px, py, emission_k, particle_direction)
+                    function_angle(Si_array, px, py, emission_k, particle_direction, left_border)
                     clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image) # 碰撞函数
                     if clearflag:
                         s_image[px, py] = 25

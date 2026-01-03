@@ -21,8 +21,7 @@ def g_i_IICE(theta):
     cos6 = cos_theta**6
     
     # 计算物理溅射函数
-    result = 0.4 * (18.7*cos_theta - 64.7*cos2 + 145.2*cos3 
-                    - 206*cos4 + 147.3*cos5 - 39.9*cos6)
+    result = 0.4 * (18.7*cos_theta - 64.7*cos2 + 145.2*cos3 - 206*cos4 + 147.3*cos5 - 39.9*cos6)
     return result
     # return 0.9 * (1.1 - 0.31*theta + 1.61*theta**2 - 2.13*theta**3 + 0.6*theta**4)
 
@@ -143,7 +142,7 @@ if __name__ == "__main__":
     print("正在绘制离子增强化学刻蚀函数...")
     
     # 方法1：使用基本绘图函数
-    theta_vals, g_vals = plot_IICE_function(theta_start=0, theta_end=2)
+    theta_vals, g_vals = plot_IICE_function(theta_start=0, theta_end=1.57)
     
     # 方法2：使用增强版
     # plot_IICE_function_enhanced()
@@ -164,7 +163,7 @@ if __name__ == "__main__":
 # 额外工具函数
 def calculate_specific_values():
     """计算特定θ值的函数值"""
-    test_points = [0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0]
+    test_points = [0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.57]
     
     print("\n=== 特定θ值的计算结果 ===")
     for theta in test_points:
