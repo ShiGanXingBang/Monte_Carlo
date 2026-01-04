@@ -16,7 +16,7 @@ matplotlib.use('TkAgg')  # 或者 'Qt5Agg', 'Agg' 等
 
 # ================= 配置路径 =================
 # CSV 保存路径 (使用 r'' 原始字符串防止转义问题)
-SAVE_DIR = r"E:\MachineLearning\data\py\Monte_Carlo\Monte_Carlo\Csv\Test28_microtrench"
+SAVE_DIR = r"E:\MachineLearning\data\py\Monte_Carlo\Monte_Carlo\Csv\Test29_microtrench"
 
 # 确保文件夹存在
 if not os.path.exists(SAVE_DIR):
@@ -668,8 +668,12 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
         # Si_array[px, py].existflag = False
     clearflag = False
 
+
+    # if species == 1 and random.random() < prob * Ysicl:
+    # 离子反应（粒子增强的化学刻蚀 + 简单的离子增强溅射）
+    if (species == 1 and random.random() < Prob_che * Ysicl) or (Si_array[px, py].material_type == 'Si' and random.random() < 0.1):
     # 离子反应（粒子增强的化学刻蚀 + 物理溅射）
-    if (species == 1 and random.random() < (1 - W_phy) * Prob_che * Ysicl + W_phy * flag_phy * Prob_phy):
+    # if (species == 1 and random.random() < (1 - W_phy) * Prob_che * Ysicl + W_phy * flag_phy * Prob_phy):
         clearflag = True
     elif species == 0 and random.random() < Prob_che:
         clearflag = True
@@ -764,7 +768,7 @@ def main():
     count_num = 0
     # 粒子总数
     C1 = 1
-    P = 700000
+    P = 500000
     Total_nums = C1 * P
     # 通量比中性粒子比原子
     C2 = 10/11
@@ -829,11 +833,11 @@ def main():
 
     # 顺序三：撞击时的反应概率
     reaction_probabilities = {
-        0: {'Cl*': 0.0, 'Cl+': 0.5},  # 未俘获Cl
-        1: {'Cl*': 0.1, 'Cl+': 0.6},  # 俘获1个Cl
-        2: {'Cl*': 0.2, 'Cl+': 0.6},  # 俘获2个Cl
-        3: {'Cl*': 0.3, 'Cl+': 0.6},  # 俘获3个Cl
-        4: {'Cl*': 1.0, 'Cl+': 0.6}  # 俘获4个Cl
+        0: {'Cl*': 0.0, 'Cl+': 0.1},  # 未俘获Cl
+        1: {'Cl*': 0.1, 'Cl+': 0.3},  # 俘获1个Cl
+        2: {'Cl*': 0.2, 'Cl+': 0.3},  # 俘获2个Cl
+        3: {'Cl*': 0.3, 'Cl+': 0.3},  # 俘获3个Cl
+        4: {'Cl*': 1.0, 'Cl+': 0.3}  # 俘获4个Cl
     }
 
     #模拟粒子入射
