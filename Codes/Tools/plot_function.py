@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import math
 
 def g_i_IICE(theta):
     """
@@ -20,8 +21,14 @@ def g_i_IICE(theta):
     cos5 = cos_theta**5
     cos6 = cos_theta**6
     
+
     # 计算物理溅射函数
     result = 0.4 * (18.7*cos_theta - 64.7*cos2 + 145.2*cos3 - 206*cos4 + 147.3*cos5 - 39.9*cos6)
+    
+    # 直线方程
+    # threshold = math.pi / 3
+    # angle_else = (theta - threshold) / (math.pi/2 - threshold)
+    # result = np.minimum(1, np.maximum(0, 1 * angle_else))
     return result
     # return 0.9 * (1.1 - 0.31*theta + 1.61*theta**2 - 2.13*theta**3 + 0.6*theta**4)
 
@@ -52,7 +59,13 @@ def plot_IICE_function(theta_start=0, theta_end=2, num_points=200):
     plt.title('离子增强化学刻蚀函数', fontsize=14, fontweight='bold')
     
     # 6. 显示公式
-    equation_text = r'$g_i^{IICE}(\theta) = 0.9(1.1 - 0.31\cdot\theta + 1.61\cdot\theta^2 - 2.13\cdot\theta^3 + 0.6\cdot\theta^4)$'
+    # 离子溅射
+    equation_text = r'$g(\theta) = 0.4[18.7\cos\theta - 64.7\cos^2\theta + 145.2\cos^3\theta - 206\cos^4\theta + 147.3\cos^5\theta - 39.9\cos^6\theta]$'
+    # equation_text = r'$g(\theta) $'
+    # 离子增强刻蚀
+    # equation_text = r'$g_i^{IICE}(\theta) = 0.9(1.1 - 0.31\cdot\theta + 1.61\cdot\theta^2 - 2.13\cdot\theta^3 + 0.6\cdot\theta^4)$'
+    # 离子粒子反射
+    # equation_text = r'$g_i^{IICE}(\theta) = \begin{cases} 0.4[18.7\cos\theta - 64.7\cos^2\theta + 145.2\cos^3\theta - 206\cos^4\theta + 147.3\cos^5\theta - 39.9\cos^6\theta] & \text{if } 0 \le \theta \le \frac{\pi}{3} \\ \min\left(1, \max\left(0, \frac{\theta - \frac{\pi}{3}}{\frac{\pi}{2} - \frac{\pi}{3}}\right)\right) & \text{if } \frac{\pi}{3} < \theta \le \frac{\pi}{2} \end{cases}$'
     plt.text(0.5, 0.95, equation_text, 
              transform=plt.gca().transAxes,  # 使用相对坐标
              fontsize=11, 
