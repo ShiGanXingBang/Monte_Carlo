@@ -16,7 +16,7 @@ matplotlib.use('TkAgg')  # 或者 'Qt5Agg', 'Agg' 等
 
 # ================= 配置路径 =================
 # CSV 保存路径 (使用 r'' 原始字符串防止转义问题)
-SAVE_DIR = r"E:\MachineLearning\data\py\Monte_Carlo\Monte_Carlo\Csv\Test29_microtrench"
+SAVE_DIR = r"E:\MachineLearning\data\py\Monte_Carlo\Monte_Carlo\Csv\Test34_microtrench"
 
 # 确保文件夹存在
 if not os.path.exists(SAVE_DIR):
@@ -670,7 +670,7 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
 
 
     # if species == 1 and random.random() < prob * Ysicl:
-    # 离子反应（粒子增强的化学刻蚀 + 简单的离子增强溅射）
+    # 离子反应（离子增强的化学刻蚀 + 固定概率的离子溅射）
     if (species == 1 and random.random() < Prob_che * Ysicl) or (Si_array[px, py].material_type == 'Si' and random.random() < 0.1):
     # 离子反应（粒子增强的化学刻蚀 + 物理溅射）
     # if (species == 1 and random.random() < (1 - W_phy) * Prob_che * Ysicl + W_phy * flag_phy * Prob_phy):
@@ -768,7 +768,7 @@ def main():
     count_num = 0
     # 粒子总数
     C1 = 1
-    P = 500000
+    P = 5
     Total_nums = C1 * P
     # 通量比中性粒子比原子
     C2 = 10/11
@@ -783,7 +783,7 @@ def main():
     start_time = time.perf_counter()
     # 掩膜角度fa
     # angle_img = abs(3)
-    angle_img = abs(30 * math.pi/90)
+    angle_img = abs(30 * math.pi/180)
     Si_array = np.empty(shape=(rows,cols), dtype=object)
     # 数据初始化整合到下面的图形初始化里面了，一块初始化
     for i in range(rows):
@@ -956,7 +956,7 @@ def main():
         #运动轨迹追踪
         max_steps = 4000  # 防止无限循环
         ref_count = 0
-        count = 1
+        count = 2
         particle_direction = 1 # 初始方向向下
         for step in range(max_steps):
             # next_pos  = return_next(emission_x, 1, emission_k, px, py)

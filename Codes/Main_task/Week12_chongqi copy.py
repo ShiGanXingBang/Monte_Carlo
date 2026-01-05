@@ -16,7 +16,7 @@ matplotlib.use('TkAgg')  # 或者 'Qt5Agg', 'Agg' 等
 
 # ================= 配置路径 =================
 # CSV 保存路径 (使用 r'' 原始字符串防止转义问题)
-SAVE_DIR = r"E:\MachineLearning\data\py\Monte_Carlo\Monte_Carlo\Csv\Test20_microtrench"
+SAVE_DIR = r"E:\MachineLearning\data\py\Monte_Carlo\Monte_Carlo\Csv\Test33_microtrench"
 
 # 确保文件夹存在
 if not os.path.exists(SAVE_DIR):
@@ -681,7 +681,7 @@ def save_contour_to_csv(points, filepath):
 
 def main():
     # 数据层面上初始化仿真界面
-    vacuum = 50
+    vacuum = 10
     rows = 800      # 宽度
     cols = 700     # 深度
     left_border = 300
@@ -705,7 +705,7 @@ def main():
     start_time = time.perf_counter()
     # 掩膜角度fa
     # angle_img = abs(3)
-    angle_img = abs(30 * math.pi/90)
+    angle_img = abs(30 * math.pi/180)
     Si_array = np.empty(shape=(rows,cols), dtype=object)
     # 数据初始化整合到下面的图形初始化里面了，一块初始化
     for i in range(rows):

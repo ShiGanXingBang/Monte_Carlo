@@ -11,7 +11,7 @@ ti.init(arch=ti.gpu)
 # 2. 常量与场定义
 ROWS, COLS = 800, 700
 BATCH_SIZE = 5000
-TOTAL_PARTICLES = 1000000
+TOTAL_PARTICLES = 100000
 RATIO = 10.0 / 11.0
 
 grid_exist = ti.field(dtype=ti.i32, shape=(ROWS, COLS))
@@ -32,7 +32,7 @@ def get_normal(px: int, py: int):
 
 @ti.kernel
 def init_grid():
-    k_mask = ti.abs(ti.tan(5 * math.pi / 90))
+    k_mask = ti.abs(ti.tan(10 * math.pi / 180))
     for i, j in grid_exist:
         if j < 50: grid_exist[i, j] = 0
         elif j < 200:
