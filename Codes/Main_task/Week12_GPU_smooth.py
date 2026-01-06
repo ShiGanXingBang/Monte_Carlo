@@ -11,7 +11,7 @@ ti.init(arch=ti.gpu)
 # 2. 常量与场定义
 ROWS, COLS = 800, 700
 BATCH_SIZE = 5000
-TOTAL_PARTICLES = 100000
+TOTAL_PARTICLES = 1000000
 RATIO = 10.0 / 11.0
 
 grid_exist = ti.field(dtype=ti.i32, shape=(ROWS, COLS))
