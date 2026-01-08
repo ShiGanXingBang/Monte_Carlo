@@ -17,7 +17,7 @@ if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
 # --- 常量定义 ---
-ROWS, COLS = 800, 700
+ROWS, COLS = 1000, 800
 TOTAL_PARTICLES = 600000
 BATCH_SIZE = 2000       # GPU并行数
 RATIO = 10.0 / 11.0     # 离子/中性粒子比例 (源自 Week12)
@@ -102,15 +102,15 @@ def get_reflection_vector(vx: float, vy: float, nx: float, ny: float, is_ion: in
 @ti.kernel
 def init_grid():
     """初始化几何结构 (与 Week12 一致)"""
-    angle_rad = 30 * math.pi / 180
+    angle_rad = 15 * math.pi / 180
     k_mask = ti.abs(ti.tan(angle_rad))
     for i, j in grid_exist:
         grid_count_cl[i, j] = 0
-        if j < 50:
+        if j < 150:
             grid_exist[i, j] = 0; grid_material[i, j] = 0
-        elif j < 200:
-            offset = int((200 - j) * k_mask)
-            if (300 - offset) < i < (500 + offset):
+        elif j < 390:
+            offset = int((390 - j) * k_mask)
+            if (300 - offset) < i < (700 + offset):
                 grid_exist[i, j] = 0; grid_material[i, j] = 0
             else:
                 grid_exist[i, j] = 1; grid_material[i, j] = 2 # Mask
