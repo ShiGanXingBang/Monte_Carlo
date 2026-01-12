@@ -18,7 +18,7 @@ if not os.path.exists(SAVE_DIR):
 
 # --- 常量定义 ---
 ROWS, COLS = 1000, 800
-TOTAL_PARTICLES = 600000
+TOTAL_PARTICLES = 1000000
 BATCH_SIZE = 2000       # GPU并行数
 RATIO = 10.0 / 11.0     # 离子/中性粒子比例 (源自 Week12)
 

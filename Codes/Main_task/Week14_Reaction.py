@@ -12,17 +12,21 @@ import csv
 ti.init(arch=ti.gpu)  # 启动核显卡加速
 
 # --- 保存路径设置 (源自 Week12) ---
-SAVE_DIR = "Etch_Data_Output"
+SAVE_DIR = "Csv\TEST2026.1.12_6"
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
 # --- 常量定义 ---
 ROWS, COLS = 1000, 700
-# 100
+
 vacuum = 100
+
 deep_border = 230
+# 100
 left_border = 150
 right_border = 250
+# left_border = 300
+# right_border = 700
 # 图形之间的大小
 Space = 200 
 # 模拟结构数量，一个dense里的isolate数量
@@ -30,7 +34,7 @@ Num = 3
 # 开口大小
 CD = right_border - left_border 
 
-TOTAL_PARTICLES = 600000
+TOTAL_PARTICLES = 2000000
 BATCH_SIZE = 2000       # GPU并行数
 RATIO = 10.0 / 11.0     # 离子/中性粒子比例 (源自 Week12)
 
@@ -68,7 +72,7 @@ def calculate_Ysicl(cos_theta: float) -> float:
     Eth = 20.0  # 阈值
     C = 0.77
     energy_term = ti.sqrt(Ei) - ti.sqrt(Eth)
-    
+    # 角度依赖项可以往这里加
     # Week12 逻辑：45度(约0.707)以内算1.0，大于45度按余弦衰减
     f_alpha = 1.0
     if cos_theta < 0.707: 
@@ -114,7 +118,7 @@ def get_reflection_vector(vx: float, vy: float, nx: float, ny: float, is_ion: in
 @ti.kernel
 def init_grid():
     """初始化几何结构 (与 Week12 一致)"""
-    angle_rad = 5 * math.pi / 180
+    angle_rad = 10 * math.pi / 180
     k_mask = ti.abs(ti.tan(angle_rad))
     for i, j in grid_exist:
         grid_count_cl[i, j] = 0
@@ -230,7 +234,7 @@ def simulate_batch():
                 
                 # --- 3. 刻蚀概率计算 (Week12 核心逻辑移植) ---
                 etch_prob = 0.0
-                
+                Prob_next = 0.0
                 if is_ion == 1:
                     # == 离子逻辑 ==
                     # 物理项：calculate_Ysicl
@@ -239,8 +243,12 @@ def simulate_batch():
                     # 化学项：基础概率 (根据 Week12 的 reaction_probabilities)
                     chem_prob = 0.3 # 默认有Cl时的概率
                     if cl_n == 0: chem_prob = 0.1
-                    
-                    if mat == 2: chem_prob *= 0.1 # Hardmask 抗蚀
+                    elif cl_n == 1: chem_prob = 0.3 * 0.25
+                    elif cl_n == 2: chem_prob = 0.3 * 0.25 * 2
+                    elif cl_n == 3: chem_prob = 0.3 * 0.25 * 3
+                    elif cl_n >= 4: chem_prob = 0.3 * 0.25 * 4
+
+                    if mat == 2: chem_prob *= 0.02 # Hardmask 抗蚀
                     
                     # 综合概率：物理 + 化学
                     # Week12 逻辑: (0.1物理) OR (化学 * Ysicl)
@@ -251,12 +259,12 @@ def simulate_batch():
                     # == 中性粒子逻辑 ==
                     # 纯化学吸附刻蚀，概率取决于 Cl 数目 (0, 0.1, 0.2, 0.3, 1.0)
                     if cl_n == 0: etch_prob = 0.0
-                    elif cl_n == 1: etch_prob = 0.1
-                    elif cl_n == 2: etch_prob = 0.2
-                    elif cl_n == 3: etch_prob = 0.3
-                    elif cl_n >= 4: etch_prob = 1.0
+                    elif cl_n == 1: etch_prob = 0.0
+                    elif cl_n == 2: etch_prob = 0.0
+                    elif cl_n == 3: etch_prob = 0.1
+                    elif cl_n >= 4: etch_prob = 0.0
                     
-                    if mat == 2: etch_prob *= 0.1 # Hardmask
+                    if mat == 2: etch_prob *= 0.02 # Hardmask
                 
                 # --- 4. 判定结果 ---
                 if ti.random() < etch_prob:
@@ -270,7 +278,13 @@ def simulate_batch():
                     # >> 没刻蚀 -> 反射或吸附 <<
                     
                     # 吸附逻辑 (Week12)
-                    if is_ion == 0 and cl_n < 4:
+                    if cl_n == 0: Prob_next = 1.00
+                    elif cl_n == 1: Prob_next = 0.75
+                    elif cl_n == 2: Prob_next = 0.50
+                    elif cl_n == 3: Prob_next = 0.25
+                    elif cl_n >= 4: Prob_next = 0.0
+
+                    if is_ion == 0 and cl_n < 4 and ti.random() < Prob_next:
                         grid_count_cl[ipx, ipy] += 1
                         # 中性粒子吸附后通常就消失了(或者继续漫反射)
                         # 这里我们设定：吸附了就消失，没吸附(概率)才反射
