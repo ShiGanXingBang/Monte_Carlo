@@ -292,6 +292,22 @@ ppt中的刻蚀产率模型还不是特别懂，过几天再看一看
 1. 入射粒子的分布情况发生了改变(实际按照随机分布)，看看GPU运算能不能让离子和中性粒子分布遵循高斯分布。
 2. 1
 
+### 2026.1.12
+
+好久不写代码了，这段时间一直在弄仿真作业，最近要把师兄那篇文章给复现出来。
+Week14_Reaction：这个的微沟槽效应太明显了，一点点的沟道就有微沟槽效应。
+还是要时常写一下md文件的，不让很容易忘了自己这段时间到底做了什么，let me have a review.
+These past three weeks I have finished the GPU speedup part and add some sections to it,owing to the time of running the traditional codes is so prolonged.I select the GPU speedup programs as my main branch.
+Here's the segments what I have added:
+
+- [x]  Completing the plot of the post profile(Separate the colour of the mask and the substrate), draw pictures when time changes each 10000 nums.
+- [x] Employing the Gaussian Filter and some CV library to smooth the profile of the final final outline.
+- [ ] Attempting to add the mechanism of the chemical and physical reactions, the probs of the reaction is still a puzzle/challenge/conundrum/problem.
+- [x] successfully add the diffuse reflection of the neutral particles and the specular reflection of the ions.
+- [ ] The distribution of the particles goes wrong,as a matter of fact, it should be Gassian Distrubution.
+- [x] Replicateing partical work of the Ziyi Hu's model which simulating the etching Profile of the Si by Cl using the MonteCarlo methods.
+
+
 ## Test
 
 `printf(Hello,world)`

@@ -16,7 +16,7 @@ matplotlib.use('TkAgg')  # 或者 'Qt5Agg', 'Agg' 等
 
 # ================= 配置路径 =================
 # CSV 保存路径 (使用 r'' 原始字符串防止转义问题)
-SAVE_DIR = r"E:\MachineLearning\data\py\Monte_Carlo\Monte_Carlo\Csv\Test34_microtrench"
+SAVE_DIR = r"E:\MachineLearning\data\py\Monte_Carlo\Monte_Carlo\Csv\Test36"
 
 # 确保文件夹存在
 if not os.path.exists(SAVE_DIR):
@@ -627,7 +627,7 @@ def reflect_angle(Si_array, px, py, k, species, direction = 1, left_border = 350
         return is_reflect_flag, reflect_k, V_out
 
 #撞击函数
-def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image):
+def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image, next_probabilities):
     if not  Si_array[px, py].existflag:
         return False
     W_phy = 0.59
@@ -662,7 +662,6 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
         # flag_phy = 0.02
 
 
-
     #4+1的逻辑
     # if Si_array[px, py].CountCl == 4 and species == 1:#和活性种复合过四次且被氯离子冲击过
         # Si_array[px, py].existflag = False
@@ -671,9 +670,9 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
 
     # if species == 1 and random.random() < prob * Ysicl:
     # 离子反应（离子增强的化学刻蚀 + 固定概率的离子溅射）
-    if (species == 1 and random.random() < Prob_che * Ysicl) or (Si_array[px, py].material_type == 'Si' and random.random() < 0.1):
+    # if (species == 1 and random.random() < Prob_che * Ysicl) or (Si_array[px, py].material_type == 'Si' and random.random() < 0.1):
     # 离子反应（粒子增强的化学刻蚀 + 物理溅射）
-    # if (species == 1 and random.random() < (1 - W_phy) * Prob_che * Ysicl + W_phy * flag_phy * Prob_phy):
+    if (species == 1 and random.random() < (1 - W_phy) * Prob_che * Ysicl + W_phy * flag_phy * Prob_phy):
         clearflag = True
     elif species == 0 and random.random() < Prob_che:
         clearflag = True
@@ -687,8 +686,10 @@ def collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angl
         Ychem = calculate_Ychem()
         if random.random() < Ychem:
             clearflag = True
-    # 活性粒子撞击且复合数目小于四
-    if not species and Si_array[px, py].CountCl < 4:
+    
+    # 活性粒子撞击且复合数目小于四，发生这个反应实际上还有条件
+    Prob_next = next_probabilities[Count][particle_type] 
+    if not species and Si_array[px, py].CountCl < 4 and random.random() < Prob_next:
         Si_array[px, py].CountCl +=1
 
 
@@ -759,12 +760,12 @@ def save_contour_to_csv(points, filepath):
 
 def main():
     # 数据层面上初始化仿真界面
-    vacuum = 150
+    vacuum = 100
     rows = 800      # 宽度
     cols = 700     # 深度
     left_border = 300
     right_border = 500
-    deep_border = 200
+    deep_border = 230
     count_num = 0
     # 粒子总数
     C1 = 1
@@ -774,7 +775,7 @@ def main():
     C2 = 10/11
     PW = 1
     Ratio = C2 / PW
-    # 能量与反应概率
+    # 能量与反应概率，实际上能量应该是一个分布范围
     C3 = 1
     # 偏移电压大小
     V_bias = 1
@@ -783,7 +784,7 @@ def main():
     start_time = time.perf_counter()
     # 掩膜角度fa
     # angle_img = abs(3)
-    angle_img = abs(30 * math.pi/180)
+    angle_img = abs(15 * math.pi/180)
     Si_array = np.empty(shape=(rows,cols), dtype=object)
     # 数据初始化整合到下面的图形初始化里面了，一块初始化
     for i in range(rows):
@@ -831,15 +832,23 @@ def main():
     fig = plt.figure(figsize=(12, 8))
     # ax = fig.add_subplot(111)
 
-    # 顺序三：撞击时的反应概率
+    # 顺序三：撞击时的反应概率，这里的cl+是物理溅射和反应性刻蚀，物理溅射针对si原子而言。
     reaction_probabilities = {
         0: {'Cl*': 0.0, 'Cl+': 0.1},  # 未俘获Cl
-        1: {'Cl*': 0.1, 'Cl+': 0.3},  # 俘获1个Cl
-        2: {'Cl*': 0.2, 'Cl+': 0.3},  # 俘获2个Cl
-        3: {'Cl*': 0.3, 'Cl+': 0.3},  # 俘获3个Cl
-        4: {'Cl*': 1.0, 'Cl+': 0.3}  # 俘获4个Cl
+        1: {'Cl*': 0.1, 'Cl+': 0.3 * 0.25},  # 俘获1个Cl
+        2: {'Cl*': 0.2, 'Cl+': 0.3 * 0.25 * 2},  # 俘获2个Cl
+        3: {'Cl*': 0.3, 'Cl+': 0.3 * 0.25 * 3},  # 俘获3个Cl
+        4: {'Cl*': 1.0, 'Cl+': 1}  # 俘获4个Cl
     }
 
+    # 这里的cl+是高能粒子溅射
+    next_probabilities = {
+        0: {'Cl*': 1.00, 'Cl+': 0.0},  # 未俘获Cl
+        1: {'Cl*': 0.75, 'Cl+': 0.3 * E},  # 俘获1个Cl
+        2: {'Cl*': 0.50, 'Cl+': 0.3 * E},  # 俘获2个Cl
+        3: {'Cl*': 0.10, 'Cl+': 0.3 * E},  # 俘获3个Cl
+        4: {'Cl*': 0.00, 'Cl+': 0.3 * E}  # 俘获4个Cl
+    }
     #模拟粒子入射
     for cl in range(Total_nums):
         count_num += 1
@@ -929,14 +938,14 @@ def main():
             if left_border < px < right_border:
                 for py in range(deep_border + 1, cols):
                     if 0 <= px < rows and Si_array[px, py].existflag:
-                        clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image) # 碰撞函数
+                        clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image, next_probabilities) # 碰撞函数
                         if clearflag:
                             s_image[px, py] = 25  #真空
                         break
             else:
                 for py in range(vacuum + 1, cols):
                     if 0 <= px < rows and Si_array[px, py].existflag:
-                        clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image) # 碰撞函数
+                        clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image, next_probabilities) # 碰撞函数
                         if clearflag:
                             s_image[px, py] = 25  #真空
                         break
@@ -999,7 +1008,7 @@ def main():
                     #     if not (0 <= px < rows and 0 <= py < cols):
                     #         break
                     #     if Si_array[px, py].existflag == 1:
-                    #             clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle,s_image)  # 碰撞函数
+                    #             clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle,s_image, next_probabilities)  # 碰撞函数
                     #             if clearflag:
                     #                 s_image[px, py] = 25  #真空
                     #     elif Si_array[px, py].existflag == 0:
@@ -1007,7 +1016,7 @@ def main():
                     # break
                 else:  # 处理碰撞反应
                     function_angle(Si_array, px, py, emission_k, particle_direction)
-                    clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image) # 碰撞函数
+                    clearflag = collisionprocess(Si_array, px, py, species, reaction_probabilities, abs_angle, s_image, next_probabilities) # 碰撞函数
                     if clearflag:
                         s_image[px, py] = 25
                     break
