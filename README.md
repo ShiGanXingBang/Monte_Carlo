@@ -311,6 +311,13 @@ After adding the multi profiles, one problem comes with the codes, I try to use 
 
 Atemping to add the martix to the GPU codes.
 
+- [ ] Generateing some pictures which is similar to the ZiyiHu
+生成了几张跟师兄的图案有一些类似的图，明天试试调一下反射次数和概率.
+
+- [x] Adding the limitation of the reflection numbers 加入了反射次数限幅
+
+After adding this section, anything seems the same as the past.
+
 ## Test
 
 `printf(Hello,world)`

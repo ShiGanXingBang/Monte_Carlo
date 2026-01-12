@@ -12,23 +12,27 @@ import csv
 ti.init(arch=ti.gpu)  # 启动核显卡加速
 
 # --- 保存路径设置 (源自 Week12) ---
-SAVE_DIR = "Csv\TEST2026.1.12_6"
+SAVE_DIR = "Csv\TEST2026.1.12_13u"
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
 # --- 常量定义 ---
-ROWS, COLS = 1000, 700
+ROWS, COLS = 700, 500
 
 vacuum = 100
 
 deep_border = 230
+# 50
+left_border = 200
+right_border = 250 
 # 100
-left_border = 150
-right_border = 250
+# left_border = 150
+# right_border = 250
+# 400
 # left_border = 300
 # right_border = 700
 # 图形之间的大小
-Space = 200 
+Space = 50 
 # 模拟结构数量，一个dense里的isolate数量
 Num = 3
 # 开口大小
@@ -118,7 +122,7 @@ def get_reflection_vector(vx: float, vy: float, nx: float, ny: float, is_ion: in
 @ti.kernel
 def init_grid():
     """初始化几何结构 (与 Week12 一致)"""
-    angle_rad = 10 * math.pi / 180
+    angle_rad = 5 * math.pi / 180
     k_mask = ti.abs(ti.tan(angle_rad))
     for i, j in grid_exist:
         grid_count_cl[i, j] = 0
@@ -158,8 +162,8 @@ def init_grid():
                     # 【修改点 2】关键报错点：left_side 是动态变量，必须用 range
                     # 原文: for x in ti.static(0, left_side):
                     for x in range(0, left_side):
-                        grid_material[x, y] = 2
-                        grid_exist[x, y] = 1
+                        grid_material[x, y] = 0
+                        grid_exist[x, y] = 0
                 
                 # 【修改点 3】同理，left_side 和 right_side 也是动态的
                 # 原文: for x in ti.static(left_side, right_side):
@@ -184,7 +188,7 @@ def init_grid():
             # 重新计算一下最右边的边界防止变量未定义
             last_right_side = current_right_border + int(Space / 2)
             if last_right_side < i < ROWS - 1:
-                grid_exist[i, j] = 1; grid_material[i, j] = 2 # Mask    
+                grid_exist[i, j] = 0; grid_material[i, j] = 0 # Mask    
         
         if j < COLS:
             # 这里的逻辑是如果还没被上面的逻辑覆盖，且在某种条件下...
@@ -210,6 +214,7 @@ def simulate_batch():
         vx, vy = ti.sin(angle), ti.cos(angle)
         
         alive, steps = True, 0
+        # ref_count = 0  # 初始化反射计数
         while alive and steps < 2000:
             steps += 1
             # 步进 (模拟 Week12 的 return_next)
@@ -248,7 +253,7 @@ def simulate_batch():
                     elif cl_n == 3: chem_prob = 0.3 * 0.25 * 3
                     elif cl_n >= 4: chem_prob = 0.3 * 0.25 * 4
 
-                    if mat == 2: chem_prob *= 0.02 # Hardmask 抗蚀
+                    if mat == 2: chem_prob *= 0.2 # Hardmask 抗蚀
                     
                     # 综合概率：物理 + 化学
                     # Week12 逻辑: (0.1物理) OR (化学 * Ysicl)
@@ -264,7 +269,7 @@ def simulate_batch():
                     elif cl_n == 3: etch_prob = 0.1
                     elif cl_n >= 4: etch_prob = 0.0
                     
-                    if mat == 2: etch_prob *= 0.02 # Hardmask
+                    if mat == 2: etch_prob *= 0.2 # Hardmask
                 
                 # --- 4. 判定结果 ---
                 if ti.random() < etch_prob:
@@ -298,10 +303,14 @@ def simulate_batch():
                         if mat == 2: ref_p += 0.2 # Hardmask 更容易反射
                         
                         if ti.random() < ref_p:
+                            # if ref_count >= 1:  # 如果已经反射过1次
+                            #     alive = False   # 直接销毁粒子
+                            # else:
                             # 调用上面的反射向量函数
                             vx, vy = get_reflection_vector(vx, vy, nx, ny, is_ion)
                             # 推离表面，防止卡死
                             px, py = px_n + nx, py_n + ny
+                                # ref_count += 1  # 计数+1
                         else:
                             alive = False # 被吸收但未反应
             else:
@@ -358,7 +367,7 @@ def main():
     for i in range(num_batches):
         simulate_batch() # 呼叫 GPU
         
-        # 每 20 批次 (10w粒子) 更新一次
+        # 每 20 批次 (100w粒子) 更新一次
         if i % 20 == 0:
             ti.sync()
             
