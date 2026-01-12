@@ -307,6 +307,7 @@ Here's the segments what I have added:
 - [ ] The distribution of the particles goes wrong,as a matter of fact, it should be Gassian Distrubution.
 - [x] Replicateing partical work of the Ziyi Hu's model which simulating the etching Profile of the Si by Cl using the MonteCarlo methods.
 
+After adding the multi profiles, one problem comes with the codes, I try to use the `range` but it doesn't play a correct role, so I ask the AI ,it tells me to use the`for x in ti.static(left_side, right_side):` but it isn't useful either.Finally,I employ the range but I don't know why it play a proper part in it.
 
 ## Test
 

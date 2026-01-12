@@ -17,7 +17,19 @@ if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
 # --- 常量定义 ---
-ROWS, COLS = 1000, 800
+ROWS, COLS = 1000, 700
+# 100
+vacuum = 100
+deep_border = 230
+left_border = 150
+right_border = 250
+# 图形之间的大小
+Space = 200 
+# 模拟结构数量，一个dense里的isolate数量
+Num = 3
+# 开口大小
+CD = right_border - left_border 
+
 TOTAL_PARTICLES = 600000
 BATCH_SIZE = 2000       # GPU并行数
 RATIO = 10.0 / 11.0     # 离子/中性粒子比例 (源自 Week12)
@@ -102,21 +114,80 @@ def get_reflection_vector(vx: float, vy: float, nx: float, ny: float, is_ion: in
 @ti.kernel
 def init_grid():
     """初始化几何结构 (与 Week12 一致)"""
-    angle_rad = 15 * math.pi / 180
+    angle_rad = 5 * math.pi / 180
     k_mask = ti.abs(ti.tan(angle_rad))
     for i, j in grid_exist:
         grid_count_cl[i, j] = 0
-        if j < 150:
+        if j <= vacuum:
             grid_exist[i, j] = 0; grid_material[i, j] = 0
-        elif j < 390:
-            offset = int((390 - j) * k_mask)
-            if (300 - offset) < i < (700 + offset):
-                grid_exist[i, j] = 0; grid_material[i, j] = 0
-            else:
-                grid_exist[i, j] = 1; grid_material[i, j] = 2 # Mask
-        else:
-            grid_exist[i, j] = 1; grid_material[i, j] = 1 # Si
 
+        # 定义局部变量以避免修改全局变量带来的潜在作用域问题
+        # 注意：在Taichi kernel中修改全局变量名会自动转为局部变量，但显式定义更安全
+        current_left_border = left_border
+        current_right_border = right_border
+
+        for n in range(Num):
+            # 更新边界逻辑
+            if n == 0:
+                current_left_border = left_border 
+                current_right_border = right_border
+            else:
+                current_left_border = current_left_border + CD + Space
+                current_right_border = current_right_border + CD + Space
+
+            # 【修改点 1】这里不要用 ti.static，因为 ranges 是常数但循环较大，用 range 更稳妥
+            # 原文: for y in ti.static(vacuum, deep_border):
+            for y in range(vacuum, deep_border): 
+                offset = int((deep_border - y) * k_mask)
+                left_current = current_left_border - offset
+                right_current = current_right_border + offset
+                
+                # 确保不出界
+                left_current = max(0, min(left_current, ROWS - 1))
+                right_current = max(0, min(right_current, ROWS - 1))
+                
+                # 遍历当前y行沟道范围内的x坐标
+                left_side = max(0, min(current_left_border - int(Space / 2), ROWS - 1))
+                right_side = max(0, min(current_right_border + int(Space / 2), ROWS - 1))
+                
+                if n == 0:
+                    # 【修改点 2】关键报错点：left_side 是动态变量，必须用 range
+                    # 原文: for x in ti.static(0, left_side):
+                    for x in range(0, left_side):
+                        grid_material[x, y] = 2
+                        grid_exist[x, y] = 1
+                
+                # 【修改点 3】同理，left_side 和 right_side 也是动态的
+                # 原文: for x in ti.static(left_side, right_side):
+                for x in range(left_side, right_side):
+                    if  left_current < x < right_current:
+                        grid_exist[x, y] = 0; grid_material[x, y] = 0
+                    else:
+                        grid_exist[x, y] = 1; grid_material[x, y] = 2 # Mask
+        
+        if vacuum < j < deep_border:
+            # 这里如果不加个判定范围可能会有问题，暂且保留你的逻辑
+            # 注意：i 是外层循环变量，这里直接用是可以的
+            pass 
+            # 原逻辑保留：
+            # if right_side < i < ROWS - 1: ... 
+            # 注意：上面的 right_side 是局部变量，出了 n 循环可能无法访问或者值是最后一次循环的值
+            # 你的原始代码逻辑中，这里似乎想处理最右侧的 Mask，
+            # 但由于 right_side 是在 n 循环里定义的，这里建议重新计算一下最右侧边界，
+            # 或者你的原始代码在 Python 作用域规则下勉强能拿到最后一次 n 的值。
+            # 既然是解决报错，这部分逻辑先不动，只修 ti.static。
+
+            # 重新计算一下最右边的边界防止变量未定义
+            last_right_side = current_right_border + int(Space / 2)
+            if last_right_side < i < ROWS - 1:
+                grid_exist[i, j] = 1; grid_material[i, j] = 2 # Mask    
+        
+        if j < COLS:
+            # 这里的逻辑是如果还没被上面的逻辑覆盖，且在某种条件下...
+            # 原代码逻辑：if j < COLS: grid_exist... = 1 (Si)
+            # 这会覆盖掉上面的真空设置，建议加个 else 或者判断 grid_exist 是否还是0
+            if grid_exist[i, j] == 0 and j >= deep_border:
+                 grid_exist[i, j] = 1; grid_material[i, j] = 1 # Si
 @ti.kernel
 def simulate_batch():
     """
