@@ -275,7 +275,7 @@ def main():
         
         # 每 20 批次 (10w粒子) 更新一次
         if i % 20 == 0:
-            ti.sync()
+            ti.sync()   
             
             # 获取数据
             mat_data = grid_material.to_numpy()

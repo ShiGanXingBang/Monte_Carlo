@@ -12,33 +12,37 @@ import csv
 ti.init(arch=ti.gpu)  # 启动核显卡加速
 
 # --- 保存路径设置 (源自 Week12) ---
-SAVE_DIR = "Csv\TEST2026.1.12_13u"
+SAVE_DIR = "Csv\TEST2026.1.13_CD100u1"
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
 # --- 常量定义 ---
-ROWS, COLS = 700, 500
+ROWS, COLS = 1000, 700
 
 vacuum = 100
 
 deep_border = 230
-# 50
-left_border = 200
-right_border = 250 
+# # 50
+# left_border = 200
+# right_border = 250 
+# # 图形之间的大小
+# Space = 50 
+
 # 100
-# left_border = 150
-# right_border = 250
+left_border = 150
+right_border = 250
+# # 图形之间的大小
+Space = 100 
 # 400
 # left_border = 300
 # right_border = 700
-# 图形之间的大小
-Space = 50 
+
 # 模拟结构数量，一个dense里的isolate数量
 Num = 3
 # 开口大小
 CD = right_border - left_border 
 
-TOTAL_PARTICLES = 2000000
+TOTAL_PARTICLES = 2300000
 BATCH_SIZE = 2000       # GPU并行数
 RATIO = 10.0 / 11.0     # 离子/中性粒子比例 (源自 Week12)
 
@@ -162,8 +166,12 @@ def init_grid():
                     # 【修改点 2】关键报错点：left_side 是动态变量，必须用 range
                     # 原文: for x in ti.static(0, left_side):
                     for x in range(0, left_side):
-                        grid_material[x, y] = 0
-                        grid_exist[x, y] = 0
+                        # 清零
+                        # grid_material[x, y] = 0
+                        # grid_exist[x, y] = 0
+                        # 掩膜
+                        grid_material[x, y] = 2
+                        grid_exist[x, y] = 1
                 
                 # 【修改点 3】同理，left_side 和 right_side 也是动态的
                 # 原文: for x in ti.static(left_side, right_side):
@@ -188,7 +196,9 @@ def init_grid():
             # 重新计算一下最右边的边界防止变量未定义
             last_right_side = current_right_border + int(Space / 2)
             if last_right_side < i < ROWS - 1:
-                grid_exist[i, j] = 0; grid_material[i, j] = 0 # Mask    
+                # grid_exist[i, j] = 0; grid_material[i, j] = 0 # Vacuo    
+                grid_exist[i, j] = 1; grid_material[i, j] = 2 # Mask    
+                
         
         if j < COLS:
             # 这里的逻辑是如果还没被上面的逻辑覆盖，且在某种条件下...
@@ -368,7 +378,7 @@ def main():
         simulate_batch() # 呼叫 GPU
         
         # 每 20 批次 (100w粒子) 更新一次
-        if i % 20 == 0:
+        if i % 50 == 0:
             ti.sync()
             
             # 获取数据
