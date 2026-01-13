@@ -318,6 +318,12 @@ Atemping to add the martix to the GPU codes.
 
 After adding this section, anything seems the same as the past.
 
+### 2026.1.13
+
+My predecessor advice to etch more about the Silicon,if it doesn't matter then try to adjust the ratio about the mask and the substrate.
+
+- [ ] Try to smooth the profile of etching, don't smooth it out too much each time.I didn't use the smoothde etching prfile to predict the future profile before.Now I will try it.
+
 ## Test
 
 `printf(Hello,world)`

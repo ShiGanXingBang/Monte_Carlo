@@ -12,7 +12,7 @@ import csv
 ti.init(arch=ti.gpu)  # 启动核显卡加速
 
 # --- 保存路径设置 (源自 Week12) ---
-SAVE_DIR = "Csv\TEST2026.1.13_CD100u1"
+SAVE_DIR = "Csv\TEST2026.1.13_CD100u2"
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
@@ -378,7 +378,7 @@ def main():
         simulate_batch() # 呼叫 GPU
         
         # 每 20 批次 (100w粒子) 更新一次
-        if i % 50 == 0:
+        if i % 20 == 0:
             ti.sync()
             
             # 获取数据
