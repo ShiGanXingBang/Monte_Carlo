@@ -12,7 +12,7 @@ import csv
 ti.init(arch=ti.gpu)  # 启动核显卡加速
 
 # --- 保存路径设置 (源自 Week12) ---
-SAVE_DIR = "Csv\TEST2026.1.13_CD100u2"
+SAVE_DIR = "Csv\TEST2026.1.15_CD100u1"
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
@@ -195,7 +195,7 @@ def init_grid():
 
             # 重新计算一下最右边的边界防止变量未定义
             last_right_side = current_right_border + int(Space / 2)
-            if last_right_side < i < ROWS - 1:
+            if last_right_side <= i < ROWS - 1:
                 # grid_exist[i, j] = 0; grid_material[i, j] = 0 # Vacuo    
                 grid_exist[i, j] = 1; grid_material[i, j] = 2 # Mask    
                 

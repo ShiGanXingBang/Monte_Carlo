@@ -12,7 +12,7 @@ import csv
 ti.init(arch=ti.gpu)
 
 # --- 保存路径设置 ---
-SAVE_DIR = "Csv/TEST2026.1.13_Smooth_Etch"
+SAVE_DIR = "Csv/TEST2026.1.15_Smooth_Etch"
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
