@@ -252,12 +252,16 @@ def simulate_batch():
                 Prob_next = 0.0
                 if is_ion == 1:
                     # == 离子逻辑 ==
-                    # 物理项：calculate_Ysicl
-                    ysicl = calculate_Ysicl(cos_theta)
+                    # 物理项：calculate_Ysicl，因为师兄的论文里没加入这一项，所以我不加了，如果效果不好再加回来。
+                    # ysicl = calculate_Ysicl(cos_theta)
                     
                     # 化学项：基础概率 (根据 Week12 的 reaction_probabilities)
                     chem_prob = 0.3 # 默认有Cl时的概率
                     if cl_n == 0: chem_prob = 0.1
+                    # elif cl_n == 1: chem_prob = 0.25
+                    # elif cl_n == 2: chem_prob = 0.25 * 2
+                    # elif cl_n == 3: chem_prob = 0.25 * 3
+                    # elif cl_n >= 4: chem_prob = 0.25 * 4
                     elif cl_n == 1: chem_prob = 0.3 * 0.25
                     elif cl_n == 2: chem_prob = 0.3 * 0.25 * 2
                     elif cl_n == 3: chem_prob = 0.3 * 0.25 * 3
@@ -268,7 +272,8 @@ def simulate_batch():
                     # 综合概率：物理 + 化学
                     # Week12 逻辑: (0.1物理) OR (化学 * Ysicl)
                     # 这里简化为线性叠加近似
-                    etch_prob = 0.05 + chem_prob * ysicl 
+                    # etch_prob = 0.05 + chem_prob * ysicl 
+                    etch_prob = 0.05 + chem_prob
                     
                 else:
                     # == 中性粒子逻辑 ==
