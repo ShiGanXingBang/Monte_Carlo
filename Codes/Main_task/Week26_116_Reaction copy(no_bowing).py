@@ -42,13 +42,14 @@ Num = 3
 # 开口大小
 CD = right_border - left_border 
 
-TOTAL_PARTICLES = 2300000
+TOTAL_PARTICLES = 10000000
 BATCH_SIZE = 2000       # GPU并行数
 RATIO = 10.0 / 11.0     # 离子/中性粒子比例 (源自 Week12)
 
 # --- Taichi 数据场 (显存空间) ---
 # grid_material: 0=真空, 1=Si, 2=Hardmask
-grid_exist = ti.field(dtype=ti.i32, shape=(ROWS, COLS))      
+grid_exist = ti.field(dtype=ti.f32, shape=(ROWS, COLS))  # 改为 f32 存小数
+grid_temp  = ti.field(dtype=ti.f32, shape=(ROWS, COLS))  # 新增：平滑缓冲层     
 grid_count_cl = ti.field(dtype=ti.i32, shape=(ROWS, COLS))   
 grid_material = ti.field(dtype=ti.i32, shape=(ROWS, COLS)) 
 
@@ -63,7 +64,7 @@ def get_surface_normal(px: int, py: int):
     nx, ny = 0.0, 0.0
     for i, j in ti.static(ti.ndrange((-2, 3), (-2, 3))):
         if 0 <= px + i < ROWS and 0 <= py + j < COLS:
-            if grid_exist[px + i, py + j] == 0:
+            if grid_exist[px + i, py + j] < 0.5:
                 # 指向真空的方向
                 nx += float(i)
                 ny += float(j)
@@ -123,6 +124,22 @@ def get_reflection_vector(vx: float, vy: float, nx: float, ny: float, is_ion: in
 
     return rvx, rvy
 
+# 【新增代码块】网格平滑化处理
+@ti.kernel
+def smooth_grid():
+    w_center = 0.98
+    w_neighbor = (1.0 - w_center) / 4.0
+    for i, j in grid_exist:
+        if 1 <= i < ROWS - 1 and 1 <= j < COLS - 1:
+            val = (grid_exist[i, j] * w_center +
+                   (grid_exist[i+1, j] + grid_exist[i-1, j] + 
+                    grid_exist[i, j+1] + grid_exist[i, j-1]) * w_neighbor)
+            grid_temp[i, j] = val
+        else:
+            grid_temp[i, j] = grid_exist[i, j]
+    for i, j in grid_exist:
+        grid_exist[i, j] = grid_temp[i, j]
+
 @ti.kernel
 def init_grid():
     """初始化几何结构 (与 Week12 一致)"""
@@ -131,7 +148,7 @@ def init_grid():
     for i, j in grid_exist:
         grid_count_cl[i, j] = 0
         if j <= vacuum:
-            grid_exist[i, j] = 0; grid_material[i, j] = 0
+            grid_exist[i, j] = 0.0; grid_material[i, j] = 0
 
         # 定义局部变量以避免修改全局变量带来的潜在作用域问题
         # 注意：在Taichi kernel中修改全局变量名会自动转为局部变量，但显式定义更安全
@@ -171,15 +188,15 @@ def init_grid():
                         # grid_exist[x, y] = 0
                         # 掩膜
                         grid_material[x, y] = 2
-                        grid_exist[x, y] = 1
+                        grid_exist[x, y] = 1.0
                 
                 # 【修改点 3】同理，left_side 和 right_side 也是动态的
                 # 原文: for x in ti.static(left_side, right_side):
                 for x in range(left_side, right_side):
                     if  left_current < x < right_current:
-                        grid_exist[x, y] = 0; grid_material[x, y] = 0
+                        grid_exist[x, y] = 0.0; grid_material[x, y] = 0
                     else:
-                        grid_exist[x, y] = 1; grid_material[x, y] = 2 # Mask
+                        grid_exist[x, y] = 1.0; grid_material[x, y] = 2 # Mask
         
         if vacuum < j < deep_border:
             # 这里如果不加个判定范围可能会有问题，暂且保留你的逻辑
@@ -197,15 +214,17 @@ def init_grid():
             last_right_side = current_right_border + int(Space / 2)
             if last_right_side <= i < ROWS - 1:
                 # grid_exist[i, j] = 0; grid_material[i, j] = 0 # Vacuo    
-                grid_exist[i, j] = 1; grid_material[i, j] = 2 # Mask    
+                grid_exist[i, j] = 1.0; grid_material[i, j] = 2 # Mask    
                 
         
         if j < COLS:
             # 这里的逻辑是如果还没被上面的逻辑覆盖，且在某种条件下...
             # 原代码逻辑：if j < COLS: grid_exist... = 1 (Si)
             # 这会覆盖掉上面的真空设置，建议加个 else 或者判断 grid_exist 是否还是0
-            if grid_exist[i, j] == 0 and j >= deep_border:
-                 grid_exist[i, j] = 1; grid_material[i, j] = 1 # Si
+            if grid_exist[i, j] == 0.0 and j >= deep_border:
+                 grid_exist[i, j] = 1.0; grid_material[i, j] = 1 # Si
+
+
 @ti.kernel
 def simulate_batch():
     """
@@ -218,9 +237,12 @@ def simulate_batch():
         is_ion = 0
         if ti.random() > RATIO: is_ion = 1 # 离子概率
         
-        # 角度分布
+        # 角度分布 高斯分布
         sigma = (1.91 if is_ion==1 else 7.64) * (math.pi/180)
         angle = ti.randn() * sigma
+        # 从高斯分布采样角度，并限制在[-π/2, π/2]范围内
+        angle = ti.randn() * sigma
+        angle = max(min(angle, math.pi/2), -math.pi/2)
         vx, vy = ti.sin(angle), ti.cos(angle)
         
         alive, steps = True, 0
@@ -238,7 +260,7 @@ def simulate_batch():
             ipx, ipy = int(px_n), int(py_n)
             
             # --- 2. 碰撞检测 ---
-            if grid_exist[ipx, ipy] == 1:
+            if grid_exist[ipx, ipy] > 0.5:
                 mat = grid_material[ipx, ipy]
                 cl_n = grid_count_cl[ipx, ipy]
                 
@@ -289,8 +311,14 @@ def simulate_batch():
                 # --- 4. 判定结果 ---
                 if ti.random() < etch_prob:
                     # >> 刻蚀发生 <<
-                    grid_exist[ipx, ipy] = 0
-                    grid_material[ipx, ipy] = 0
+                    # 原代码：grid_exist[ipx, ipy] = 0
+                    current_val = grid_exist[ipx, ipy]
+                    grid_exist[ipx, ipy] = ti.max(0.0, current_val - 0.2) # 每次扣血 0.2
+                    
+                    # 只有当彻底被挖空(变成0)时，才把材料标记去掉
+                    if grid_exist[ipx, ipy] <= 0.0:
+                        grid_material[ipx, ipy] = 0
+                    
                     alive = False
                     
                     # (Week12 中的链式反应在这里可以通过判断邻居实现，但GPU中通常忽略微小链式以换取速度)
@@ -381,9 +409,11 @@ def main():
     
     for i in range(num_batches):
         simulate_batch() # 呼叫 GPU
-        
+
+        smooth_grid()    # <--- 【新增这一行】 必须加在这里！
+
         # 每 20 批次 (100w粒子) 更新一次
-        if i % 20 == 0:
+        if i % 200 == 0:
             ti.sync()
             
             # 获取数据
