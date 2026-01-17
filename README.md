@@ -324,6 +324,10 @@ My predecessor advice to etch more about the Silicon,if it doesn't matter then t
 
 - [ ] Try to smooth the profile of etching, don't smooth it out too much each time.I didn't use the smoothde etching prfile to predict the future profile before.Now I will try it.
 
+## 2026.1.17
+
+是不是gpu加速法线存在问题，侧壁一直不好使，我的轮廓和师兄的不一样。为什么先反应后反射的图形是那样的，重新做一下。过去有两个版本的侧壁反射效果还可以，明天看看那两个的反射逻辑，更新一下代码，不行就改成原来cpu跑的那个，看看怎么加速。
+
 ## Test
 
 `printf(Hello,world)`
