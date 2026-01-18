@@ -12,7 +12,7 @@ import csv
 ti.init(arch=ti.gpu)  # 启动核显卡加速
 
 # --- 保存路径设置 (源自 Week12) ---
-SAVE_DIR = r"Csv\TEST2026.1.17_CD100u3"
+SAVE_DIR = r"Csv\TEST2026.1.18_CD100u3"
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
@@ -44,7 +44,7 @@ CD = right_border - left_border
 
 TOTAL_PARTICLES = 20000000
 BATCH_SIZE = 2000       # GPU并行数
-RATIO = 20.0 / 21.0     # 离子/中性粒子比例 (源自 Week12)
+RATIO = 100.0 / 101.0     # 离子/中性粒子比例 (源自 Week12)
 
 # --- Taichi 数据场 (显存空间) ---
 # grid_material: 0=真空, 1=Si, 2=Hardmask
@@ -312,10 +312,10 @@ def simulate_batch():
                     # == 中性粒子逻辑 ==    
                     # 纯化学吸附刻蚀，概率取决于 Cl 数目 (0, 0.1, 0.2, 0.3, 1.0)
                     if cl_n == 0: etch_prob = 0.0
-                    elif cl_n == 1: etch_prob = 0.0
-                    elif cl_n == 2: etch_prob = 0.0
-                    elif cl_n == 3: etch_prob = 0.1
-                    elif cl_n >= 4: etch_prob = 0.0
+                    elif cl_n == 1: etch_prob = 0.0 + 0.1
+                    elif cl_n == 2: etch_prob = 0.0 + 0.2
+                    elif cl_n == 3: etch_prob = 0.1 + 0.3
+                    elif cl_n >= 4: etch_prob = 0.0 + 1
                     
                     if mat == 2: etch_prob *= 0.4 # Hardmask
                 
@@ -351,6 +351,8 @@ def simulate_batch():
                     
                     # 如果没死(比如离子，或者中性粒子没被吸附)，则反射
                     if alive or is_ion == 1:
+                        ref_p = 1.0 - cos_theta 
+                        if mat == 2: ref_p += 0.2 # Hardmask 更容易反射
                         # 反射概率 (参考 reflect_prob 函数)
                         # theta 对应 cos_theta，material=mat，species=is_ion
                         # threshold = math.pi / 3  # π/3
@@ -381,8 +383,7 @@ def simulate_batch():
                         # if theta >= math.pi/3:
                         #     ref_p = 0.8
                         # else:
-                        ref_p = 1.0 - cos_theta 
-                        if mat == 2: ref_p += 0.2 # Hardmask 更容易反射
+
                         
                         if ti.random() < ref_p:
                             # 调用上面的反射向量函数

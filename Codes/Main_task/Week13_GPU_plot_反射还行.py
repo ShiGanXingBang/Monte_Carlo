@@ -11,9 +11,9 @@ ti.init(arch=ti.gpu)
 
 # 2. 常量定义
 ROWS, COLS = 800, 700
-TOTAL_PARTICLES = 1000000
+TOTAL_PARTICLES = 2000000
 BATCH_SIZE = 5000 
-RATIO = 10.0 / 11.0 # 离子比例
+RATIO = 20.0 / 21.0 # 离子比例
 
 # 3. 数据场定义
 # grid_material: 0=Vacuum, 1=Si, 2=Hardmask
