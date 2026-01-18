@@ -1,7 +1,7 @@
 import taichi as ti
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
+from matplotlib.colors import ListedColormap,to_rgb
 from scipy.ndimage import gaussian_filter
 import math
 import time
@@ -435,7 +435,26 @@ def main():
             
             # --- 绘图 ---
             ax.clear()
-            ax.imshow(mat_data.T, cmap=cmap_custom, vmin=0, vmax=2, origin='upper')
+
+            # 根据 grid_exist （是否被刻蚀）和 material 生成 RGB 图像，
+            # 保证被刻蚀的 Si 区域显示为真空(air)颜色。
+            vac_col = np.array(to_rgb("#008CFF"))
+            si_col = np.array(to_rgb("#00008B"))
+            mask_col = np.array(to_rgb("#00FFFF"))
+
+            rgb_img = np.zeros((ROWS, COLS, 3), dtype=np.float32)
+            vac_mask = (exist_data < 0.5)
+            mask_mask = (exist_data >= 0.5) & (mat_data == 2)
+            si_mask = (exist_data >= 0.5) & (mat_data == 1)
+
+            rgb_img[vac_mask] = vac_col
+            rgb_img[mask_mask] = mask_col
+            rgb_img[si_mask] = si_col
+            # 其他未分类的实心区域归为 Si 颜色
+            other_mask = (exist_data >= 0.5) & (~mask_mask) & (~si_mask)
+            rgb_img[other_mask] = si_col
+
+            ax.imshow(np.transpose(rgb_img, (1, 0, 2)), origin='upper')
             
             # 画历史线
             for idx, (hx, hy) in enumerate(history_lines):

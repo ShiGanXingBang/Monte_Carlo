@@ -1,7 +1,7 @@
 import taichi as ti
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
+from matplotlib.colors import ListedColormap, to_rgb
 from scipy.ndimage import gaussian_filter
 import math
 import time
@@ -42,9 +42,9 @@ Num = 3
 # 开口大小
 CD = right_border - left_border 
 
-TOTAL_PARTICLES = 20000000
+TOTAL_PARTICLES = 10000000
 BATCH_SIZE = 2000       # GPU并行数
-RATIO = 100.0 / 101.0     # 离子/中性粒子比例 (源自 Week12)
+RATIO = 10.0 / 11.0     # 离子/中性粒子比例 (源自 Week12)
 
 # --- Taichi 数据场 (显存空间) ---
 # grid_material: 0=真空, 1=Si, 2=Hardmask
@@ -143,7 +143,7 @@ def smooth_grid():
 @ti.kernel
 def init_grid():
     """初始化几何结构 (与 Week12 一致)"""
-    angle_rad = 2 * math.pi / 180
+    angle_rad = 5 * math.pi / 180
     k_mask = ti.abs(ti.tan(angle_rad))
     for i, j in grid_exist:
         grid_count_cl[i, j] = 0
@@ -246,7 +246,7 @@ def simulate_batch():
         vx, vy = ti.sin(angle), ti.cos(angle)
         
         alive, steps = True, 0
-        # ref_count = 0  # 初始化反射计数
+        ref_count = 0  # 初始化反射计数
         while alive and steps < 2000:
             steps += 1
             # 步进 (模拟 Week12 的 return_next)
@@ -277,16 +277,14 @@ def simulate_batch():
                 theta = ti.acos(cos_theta)
                 # 也可以得到角度值供输出或调试使用
                 # theta_deg = theta * 180.0 / 3.141592653589793
-                # 调试打印（Taichi kernel 支持 print）
-                # print(cos_theta, theta_deg)
-                
+    
                 # --- 3. 刻蚀概率计算 (Week12 核心逻辑移植) ---
                 etch_prob = 0.0
                 Prob_next = 0.0
                 if is_ion == 1:
                     # == 离子逻辑 ==
                     # 物理项：calculate_Ysicl，因为师兄的论文里没加入这一项，所以我不加了，如果效果不好再加回来。
-                    # ysicl = calculate_Ysicl(cos_theta)
+                    ysicl = calculate_Ysicl(cos_theta)
                     
                     # 化学项：基础概率 (根据 Week12 的 reaction_probabilities)
                     chem_prob = 0.3 # 默认有Cl时的概率
@@ -300,7 +298,7 @@ def simulate_batch():
                     elif cl_n == 3: chem_prob = 0.3 * 0.25 * 3
                     elif cl_n >= 4: chem_prob = 0.3 * 0.25 * 4
 
-                    if mat == 2: chem_prob *= 0.4 # Hardmask 抗蚀
+                    if mat == 2: chem_prob *= 0.45 # Hardmask 抗蚀
                     
                     # 综合概率：物理 + 化学
                     # Week12 逻辑: (0.1物理) OR (化学 * Ysicl)
@@ -312,12 +310,12 @@ def simulate_batch():
                     # == 中性粒子逻辑 ==    
                     # 纯化学吸附刻蚀，概率取决于 Cl 数目 (0, 0.1, 0.2, 0.3, 1.0)
                     if cl_n == 0: etch_prob = 0.0
-                    elif cl_n == 1: etch_prob = 0.0 + 0.1
-                    elif cl_n == 2: etch_prob = 0.0 + 0.2
-                    elif cl_n == 3: etch_prob = 0.1 + 0.3
-                    elif cl_n >= 4: etch_prob = 0.0 + 1
+                    elif cl_n == 1: etch_prob = 0.0
+                    elif cl_n == 2: etch_prob = 0.0
+                    elif cl_n == 3: etch_prob = 0.2
+                    elif cl_n >= 4: etch_prob = 0.0
                     
-                    if mat == 2: etch_prob *= 0.4 # Hardmask
+                    if mat == 2: etch_prob *= 0.45 # Hardmask
                 
                 # --- 4. 判定结果 ---
                 if ti.random() < etch_prob:
@@ -349,10 +347,19 @@ def simulate_batch():
                         # 这里我们设定：吸附了就消失，没吸附(概率)才反射
                         alive = False 
                     
+                    if ref_count > 1:
+                        ref_count = 0
+                    
                     # 如果没死(比如离子，或者中性粒子没被吸附)，则反射
-                    if alive or is_ion == 1:
-                        ref_p = 1.0 - cos_theta 
-                        if mat == 2: ref_p += 0.2 # Hardmask 更容易反射
+                    if alive or is_ion == 1 and ref_count <= 1:
+                        ref_count += 1
+                        ref_p = 0.0
+                        if is_ion == 1:
+                            ref_p = 1.0 - cos_theta 
+                            if mat == 2: ref_p += 0.2 # Hardmask 更容易反射
+                        else:
+                            ref_p = ti.random()
+                            if mat == 2: ref_p += 0.2 # Hardmask 更容易反射
                         # 反射概率 (参考 reflect_prob 函数)
                         # theta 对应 cos_theta，material=mat，species=is_ion
                         # threshold = math.pi / 3  # π/3
@@ -449,7 +456,7 @@ def main():
         smooth_grid()    # <--- 【新增这一行】 必须加在这里！
 
         # 每 20 批次 (100w粒子) 更新一次
-        if i % 200 == 0:
+        if i % 50 == 0:
             ti.sync()
             
             # 获取数据
@@ -471,7 +478,26 @@ def main():
             
             # --- 绘图 ---
             ax.clear()
-            ax.imshow(mat_data.T, cmap=cmap_custom, vmin=0, vmax=2, origin='upper')
+            # ax.imshow(mat_data.T, cmap=cmap_custom, vmin=0, vmax=2, origin='upper')
+            # 根据 grid_exist （是否被刻蚀）和 material 生成 RGB 图像，
+            # 保证被刻蚀的 Si 区域显示为真空(air)颜色。
+            vac_col = np.array(to_rgb("#008CFF"))
+            si_col = np.array(to_rgb("#00008B"))
+            mask_col = np.array(to_rgb("#00FFFF"))
+
+            rgb_img = np.zeros((ROWS, COLS, 3), dtype=np.float32)
+            vac_mask = (exist_data < 0.5)
+            mask_mask = (exist_data >= 0.5) & (mat_data == 2)
+            si_mask = (exist_data >= 0.5) & (mat_data == 1)
+
+            rgb_img[vac_mask] = vac_col
+            rgb_img[mask_mask] = mask_col
+            rgb_img[si_mask] = si_col
+            # 其他未分类的实心区域归为 Si 颜色
+            other_mask = (exist_data >= 0.5) & (~mask_mask) & (~si_mask)
+            rgb_img[other_mask] = si_col
+
+            ax.imshow(np.transpose(rgb_img, (1, 0, 2)), origin='upper')
             
             # 画历史线
             for idx, (hx, hy) in enumerate(history_lines):
