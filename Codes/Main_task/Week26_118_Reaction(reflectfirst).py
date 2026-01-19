@@ -251,6 +251,10 @@ def simulate_batch():
             steps += 1
             # 步进 (模拟 Week12 的 return_next)
             px_n, py_n = px + vx * 1.1, py + vy * 1.1
+            # 标记粒子轨迹,画线
+            # if px < ROWS and py < COLS:
+            #     s_image[px, py] = 60     
+                   
             
             # 周期性边界 (Week12 特性)
             if px_n < 0: px_n += ROWS

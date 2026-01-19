@@ -12,7 +12,7 @@ import csv
 ti.init(arch=ti.gpu)  # 启动核显卡加速
 
 # --- 保存路径设置 (源自 Week12) ---
-SAVE_DIR = "Etch_Data_Output"
+SAVE_DIR = "Csv\Etch_Data_Output"
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 

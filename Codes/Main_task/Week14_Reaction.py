@@ -12,27 +12,27 @@ import csv
 ti.init(arch=ti.gpu)  # 启动核显卡加速
 
 # --- 保存路径设置 (源自 Week12) ---
-SAVE_DIR = "Csv\TEST2026.1.16_CD100u1"
+SAVE_DIR = "Csv\TEST2026.1.19_CD100u1"
 if not os.path.exists(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
 # --- 常量定义 ---
-ROWS, COLS = 1000, 700
+ROWS, COLS = 800, 700
 
 vacuum = 100
 
 deep_border = 230
 # # 50
-# left_border = 200
-# right_border = 250 
-# # 图形之间的大小
-# Space = 50 
+left_border = 200
+right_border = 250 
+# 图形之间的大小
+Space = 50 
 
 # 100
-left_border = 150
-right_border = 250
-# # 图形之间的大小
-Space = 100 
+# left_border = 150
+# right_border = 250
+# # # 图形之间的大小
+# Space = 100 
 # 400
 # left_border = 300
 # right_border = 700
