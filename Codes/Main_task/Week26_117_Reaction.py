@@ -23,16 +23,16 @@ vacuum = 100
 
 deep_border = 230
 # # 50
-left_border = 200
-right_border = 250 
-# 图形之间的大小
-Space = 50 
+# left_border = 200
+# right_border = 250 
+# # 图形之间的大小
+# Space = 50 
 
 # 100
-# left_border = 150
-# right_border = 250
-# # # 图形之间的大小
-# Space = 100 
+left_border = 150
+right_border = 250
+# # 图形之间的大小
+Space = 100 
 # 400
 # left_border = 300
 # right_border = 700
@@ -312,7 +312,7 @@ def simulate_batch():
                     if cl_n == 0: etch_prob = 0.0
                     elif cl_n == 1: etch_prob = 0.0
                     elif cl_n == 2: etch_prob = 0.0
-                    elif cl_n == 3: etch_prob = 0.5
+                    elif cl_n == 3: etch_prob = 0.65
                     elif cl_n >= 4: etch_prob = 0.0
                     
                     if mat == 2: etch_prob *= 0.35 # Hardmask
