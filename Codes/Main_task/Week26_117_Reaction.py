@@ -42,9 +42,9 @@ Num = 3
 # 开口大小
 CD = right_border - left_border 
 
-TOTAL_PARTICLES = 7000000
+TOTAL_PARTICLES = 30000000
 BATCH_SIZE = 2000       # GPU并行数
-RATIO = 5.0 / 6.0     # 离子/中性粒子比例 (源自 Week12)
+RATIO = 100.0 / 105.0     # 中性粒子/（离子+中性粒子）比例 (源自 Week12)
 
 # --- Taichi 数据场 (显存空间) ---
 # grid_material: 0=真空, 1=Si, 2=Hardmask
@@ -105,22 +105,25 @@ def get_reflection_vector(vx: float, vy: float, nx: float, ny: float, is_ion: in
         rvx = vx - 2 * dot * nx
         rvy = vy - 2 * dot * ny
     else:
-        # === 中性粒子：漫反射 (Week12 核心特性) ===
-        # 在法线方向的半圆内随机生成一个角度
-        # 生成一个切向向量 (-ny, nx)
+        # === 中性粒子：真正的 Lambertian 漫反射 ===
+        # 1. 构造切向向量 T (Tangent)
         tx, ty = -ny, nx
         
-        # 随机混合 法向 和 切向
-        rand_t = (ti.random() - 0.5) * 2.0 # -1 到 1
+        # 2. 生成随机混合系数
+        # 物理原理：对于 Lambertian 反射，出射角的正弦值 (sin_theta) 是均匀分布的
+        sin_theta = (ti.random() - 0.5) * 2.0  # 范围 [-1.0, 1.0]
         
-        # 简单的漫反射模拟：主要是沿着法线反弹，带一点随机偏转
-        rvx = nx + rand_t * tx
-        rvy = ny + rand_t * ty
+        # 3. 计算余弦值 (cos_theta)
+        # 利用公式：sin^2 + cos^2 = 1 -> cos = sqrt(1 - sin^2)
+        # 这样避免了昂贵的 ti.cos() 和 ti.sin() 计算，速度极快
+        cos_theta = ti.sqrt(1.0 - sin_theta**2)
         
-        # 归一化
-        norm = ti.sqrt(rvx**2 + rvy**2) + 1e-6
-        rvx /= norm
-        rvy /= norm
+        # 4. 向量合成 (相当于旋转法线)
+        # 新向量 = 法向 * cos + 切向 * sin
+        rvx = nx * cos_theta - ny * sin_theta
+        rvy = ny * cos_theta + nx * sin_theta
+        
+        # (结果已经是归一化的单位向量，不需要再除以 norm)
 
     return rvx, rvy
 
