@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # ================= 1. 配置 =================
-CSV_FILE = "Csv\TEST2026.1.12_7\contour_0.csv"
+CSV_FILE = "Csv\TEST2026.1.18_CD100u3\contour_26500000.csv"
 # 你的GPU算法逻辑：真空重心法
 # 如果 y=0 在顶部，真空在上方，那么 vacuum neighbors 的 y 都是负的相对值
 # 所以 sum(ny) 是负数。
