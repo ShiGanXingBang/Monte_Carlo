@@ -16,7 +16,7 @@ Num = 3
 CD = right_border - left_border
 
 # --- 模拟参数 ---
-NUM_TRACE = 10000         # 追踪 100 个粒子
+NUM_TRACE = 100         # 追踪 100 个粒子
 MAX_STEPS = 5000        # 给它们足够的时间去反弹
 Prob_Etch = 0.1         # 10% 概率发生刻蚀 (反应并消失)
 Prob_Adsorb = 0.2       # 20% 概率被吸附 (粘住并消失)
