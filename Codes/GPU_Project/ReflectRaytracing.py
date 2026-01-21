@@ -16,7 +16,7 @@ Num = 3
 CD = right_border - left_border
 
 # --- 轨迹追踪专用参数 ---
-NUM_TRACE = 200        # 追踪 100 个粒子
+NUM_TRACE = 50        # 追踪 100 个粒子
 MAX_STEPS = 300       # 步数加多一点，让它们多弹一会儿
 RATIO = 0  # 离子/中性比例
 
@@ -122,7 +122,7 @@ def trace_particles_with_bounce():
     for k in range(NUM_TRACE):
         # --- A. 生成 ---
         # px, py = ti.random() * (ROWS - 1), 1.0
-        px, py = 200.0 + k, 1.0
+        px, py = 200.0 + 10*k, 1.0
         
         is_ion = 0
         if ti.random() > RATIO: is_ion = 1 

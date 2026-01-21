@@ -42,7 +42,7 @@ Num = 3
 # 开口大小
 CD = right_border - left_border 
 
-TOTAL_PARTICLES = 3000000
+TOTAL_PARTICLES = 6000000
 BATCH_SIZE = 2000       # GPU并行数
 RATIO = 10.0 / 15.0     # 中性粒子/（离子+中性粒子）比例 (源自 Week12)
 

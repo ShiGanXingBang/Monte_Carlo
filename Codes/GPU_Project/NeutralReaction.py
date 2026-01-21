@@ -111,7 +111,7 @@ def init_grid():
 def simulate_neutrals():
     for k in range(NUM_TRACE):
         # --- 1. 生成 (强制为中性粒子，角度较宽) ---
-        px, py = ti.random() * (ROWS - 1), 1.0
+        px, py = ti.random() * (ROWS - 50), 1.0
         
         # 中性粒子角度分布 (sigma大)
         sigma = 7.64 * (math.pi/180) 

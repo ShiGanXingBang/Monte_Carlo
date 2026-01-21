@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # ================= 1. 配置 =================
-CSV_FILE = "Csv\TEST2026.1.18_CD100u3\contour_26500000.csv"
+CSV_FILE = "Csv\TEST2026.1.20_CD100u\contour_final.csv"
 # 你的GPU算法逻辑：真空重心法
 # 如果 y=0 在顶部，真空在上方，那么 vacuum neighbors 的 y 都是负的相对值
 # 所以 sum(ny) 是负数。
@@ -86,7 +86,7 @@ def main():
     # 2. 画箭头
     # 关键设置：angles='xy', scale_units='xy', scale=0.5
     # 这保证了箭头方向和数据坐标系严格对应，不会被拉伸变形！
-    step = 20 # 降采样，每20个画一个
+    step = 10 # 降采样，每20个画一个
     sub_df = df.iloc[::step]
     sub_nx = nx_list[::step]
     sub_ny = ny_list[::step]
