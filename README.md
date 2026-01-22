@@ -332,6 +332,10 @@ My predecessor advice to etch more about the Silicon,if it doesn't matter then t
 
 做不出来啦~~~~~我是神经病，我是饭桶我去吃饭啦，bowing不出来啦。但是看得出是有bowing的，但是平滑化之后的bowing就没了，虽然没加入平滑化，但是由于显示的只是轮廓所以bowing不出来，看看边缘特别锐化的·平滑化怎么做，我看着的平滑化对于 x = 固定值的时候做的不是很好，找个更合适的方案。
 
+## 2026.1.22
+
+Today I went to institution for meeting my conductor.
+
 ## Test
 
 `printf(Hello,world)`

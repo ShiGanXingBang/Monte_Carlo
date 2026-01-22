@@ -229,7 +229,7 @@ def simulate_batch():
                         if ref_count >= 1:
                             prob_etch *= 0.1 # 能量损失，很难刻蚀
                         
-                        if mat == 2: prob_etch *= 0.05 # Mask 极难刻蚀
+                        if mat == 2: prob_etch *= 0.4 # Mask 极难刻蚀
                         
                         if ti.random() < prob_etch:
                             # -> 刻蚀
