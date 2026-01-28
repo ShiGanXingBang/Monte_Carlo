@@ -336,6 +336,10 @@ My predecessor advice to etch more about the Silicon,if it doesn't matter then t
 
 Today I went to institution for meeting my conductor.
 
+## 2026.1.28
+
+回家一趟。
+
 ## Test
 
 `printf(Hello,world)`
