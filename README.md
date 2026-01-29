@@ -340,6 +340,12 @@ Today I went to institution for meeting my conductor.
 
 回家一趟。
 
+## 2026.1.29
+
+Tomorrow is the final exam, but passing it isn't a exetreme difficult thing，so I will try to do some works for the article.
+
+- [ ] Finding the mechanism about HBr and O2 etch the Si.
+
 ## Test
 
 `printf(Hello,world)`
