@@ -346,6 +346,9 @@ Tomorrow is the final exam, but passing it isn't a exetreme difficult thing，so
 
 - [ ] Finding the mechanism about HBr and O2 etch the Si.
 
+![alt text](image.png)
+出现了类似穿透衬底直接入射到里面的现象，下一步找一找是什么原因
+
 ## Test
 
 `printf(Hello,world)`

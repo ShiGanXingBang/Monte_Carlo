@@ -30,9 +30,9 @@ Space = 100
 Num = 3
 CD = right_border - left_border
 
-TOTAL_PARTICLES = 5000000
+TOTAL_PARTICLES = 4000000
 BATCH_SIZE = 4000
-RATIO = 5.0 / 41.0  # 离子/中性粒子比例
+RATIO = 10.0 / 11.0  # 离子/中性粒子比例
 
 # --- Taichi 数据场 ---
 grid_exist = ti.field(dtype=ti.f32, shape=(ROWS, COLS))      
@@ -183,11 +183,17 @@ def simulate_batch():
                 # 反射概率 (参考 reflect_prob 函数)
                 # theta 对应 cos_theta，material=mat，species=is_ion
                 threshold = math.pi / 3  # π/3
-                ref_p = 0.0  # <--- 必须加上这一行初始化！
+                prob_reflect = 0.0  # <--- 必须加上这一行初始化！
 
                 if is_ion == 1:
-                    # 离子：掠角易反射 (1-cos)
-                    prob_reflect = 1.0 - cos_theta
+                    #         # 当 cos_theta < π/3 时，反射概率从0线性增长到1
+                    #         # 角度对应关系：theta = arccos(cos_theta)，需要将cos_theta转换为角度
+                    #         # 简化：直接用 cos_theta 作为角度代理
+                    angle_else = ti.max(0.0, (theta - threshold) / (math.pi/2 - threshold))
+                    angle_else = ti.min(1.0, angle_else)
+                    prob_reflect = angle_else
+                    # # 离子：掠角易反射 (1-cos)
+                    # prob_reflect = 1.0 - cos_theta
                     if mat == 2: prob_reflect += 0.2
                     
                     if ti.random() < prob_reflect:
@@ -197,7 +203,7 @@ def simulate_batch():
                     # 中性：粘附系数 (Cl越多越容易反弹)
                     prob_reflect = 0.5 + 0.1 * cl_n 
                     if prob_reflect > 0.95: prob_reflect = 0.95
-                    
+                    #　实际上算的时候没有把这个跟黏着系数有关的模型加入，因为目前还没有找到相关的论文作为支撑。
                     if ti.random() < 0.8:
                         did_reflect = True
                         ref_count += 1
