@@ -349,6 +349,10 @@ Tomorrow is the final exam, but passing it isn't a exetreme difficult thing，so
 ![alt text](image.png)
 出现了类似穿透衬底直接入射到里面的现象，下一步找一找是什么原因
 
+## 2026.2.2
+
+During the past 2 weeks,I didnt do some works about the etching model.Today I will restart the study about it.
+
 ## Test
 
 `printf(Hello,world)`

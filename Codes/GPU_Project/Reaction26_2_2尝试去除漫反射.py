@@ -22,7 +22,7 @@ if not os.path.exists(SAVE_DIR):
 
 # --- 全局常量 ---
 ROWS, COLS = 1000, 700
-vacuum = 100s
+vacuum = 100
 deep_border = 230
 left_border = 150
 right_border = 250
@@ -32,7 +32,7 @@ CD = right_border - left_border
 
 TOTAL_PARTICLES = 4000000
 BATCH_SIZE = 4000
-RATIO = 5.0 / 21.0  # 中性/总粒子比例
+RATIO = 10.0 / 21.0  # 中性/总粒子比例
 
 # --- Taichi 数据场 ---
 grid_exist = ti.field(dtype=ti.f32, shape=(ROWS, COLS))      
@@ -58,18 +58,12 @@ def get_surface_normal(px: int, py: int):
 def get_reflection_vector(vx: float, vy: float, nx: float, ny: float, is_ion: int):
     """ 计算反射向量 """
     rvx, rvy = 0.0, 0.0
-    if is_ion == 1:
-        # 镜面反射 (v - 2(v.n)n)
-        dot = vx * nx + vy * ny
-        rvx = vx - 2 * dot * nx
-        rvy = vy - 2 * dot * ny
-    else:
-        # Lambertian 漫反射
-        tx, ty = -ny, nx
-        sin_theta = (ti.random() - 0.5) * 2.0
-        cos_theta = ti.sqrt(1.0 - sin_theta**2)
-        rvx = nx * cos_theta + tx * sin_theta
-        rvy = ny * cos_theta + ty * sin_theta
+
+    # 镜面反射 (v - 2(v.n)n)
+    dot = vx * nx + vy * ny
+    rvx = vx - 2 * dot * nx
+    rvy = vy - 2 * dot * ny
+
     return rvx, rvy
 
 @ti.kernel
