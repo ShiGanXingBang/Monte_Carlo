@@ -32,7 +32,7 @@ CD = right_border - left_border
 
 TOTAL_PARTICLES = 4000000
 BATCH_SIZE = 4000
-RATIO = 5.0 / 21.0  # 中性/总粒子比例
+RATIO = 10.0 / 11.0  # 中性/总粒子比例
 
 # --- Taichi 数据场 ---
 grid_exist = ti.field(dtype=ti.f32, shape=(ROWS, COLS))      
@@ -241,7 +241,7 @@ def simulate_batch():
                         prob_etch = 0.0
                         # 只有 Cl 饱和才刻蚀
                         if mat == 1 and cl_n >= 3:
-                            prob_etch = 0.5
+                            prob_etch = 0.1
                         
                         if ti.random() < prob_etch:
                             # 刻蚀

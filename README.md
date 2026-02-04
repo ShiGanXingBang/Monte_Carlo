@@ -353,6 +353,10 @@ Tomorrow is the final exam, but passing it isn't a exetreme difficult thing，so
 
 During the past 2 weeks,I didnt do some works about the etching model.Today I will restart the study about it.
 
+## 2026.2.3
+
+These days I fall in the tender land,it is a wrong thing. I will change it.
+
 ## Test
 
 `printf(Hello,world)`
