@@ -22,7 +22,7 @@ if not os.path.exists(SAVE_DIR):
 
 # --- 全局常量 ---
 ROWS, COLS = 1000, 700
-vacuum = 100s
+vacuum = 100
 deep_border = 230
 left_border = 150
 right_border = 250
