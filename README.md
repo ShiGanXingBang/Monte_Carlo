@@ -357,6 +357,10 @@ During the past 2 weeks,I didnt do some works about the etching model.Today I wi
 
 These days I fall in the tender land,it is a wrong thing. I will change it.
 
+## 2026.2.4
+
+Today I have finished my girlfriends' reading notes.
+
 ## Test
 
 `printf(Hello,world)`
