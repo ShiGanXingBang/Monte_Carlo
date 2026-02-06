@@ -125,7 +125,8 @@ def init_grid():
                         grid_exist[x, y] = 1.0; grid_material[x, y] = 2
         
         last_r = current_right + int(Space/2)
-        if last_r <= i < ROWS-1 and vacuum < j < deep_border:
+        # 这里的ROWs绝对不能放成ROWs-1
+        if last_r <= i < ROWS and vacuum < j < deep_border:
             grid_exist[i, j] = 1.0; grid_material[i, j] = 2
         if j >= deep_border and j < COLS:
             if grid_exist[i, j] == 0.0:
@@ -173,7 +174,7 @@ def simulate_batch():
                 if cos_theta > 1: cos_theta = 1.0
                 
                 # 在 Taichi kernel 中使用 ti.acos，得到弧度制角度 (0..pi/2)
-                theta = ti.acos(cos_theta)
+                theta_coll = ti.acos(cos_theta)
 
                 # === 判定顺序：反射 -> 反应 ===
                 
@@ -189,7 +190,7 @@ def simulate_batch():
                     #         # 当 cos_theta < π/3 时，反射概率从0线性增长到1
                     #         # 角度对应关系：theta = arccos(cos_theta)，需要将cos_theta转换为角度
                     #         # 简化：直接用 cos_theta 作为角度代理
-                    angle_else = ti.max(0.0, (theta - threshold) / (math.pi/2 - threshold))
+                    angle_else = ti.max(0.0, (theta_coll - threshold) / (math.pi/2 - threshold))
                     angle_else = ti.min(1.0, angle_else)
                     prob_reflect = angle_else
                     # # 离子：掠角易反射 (1-cos)

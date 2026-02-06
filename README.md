@@ -361,6 +361,10 @@ These days I fall in the tender land,it is a wrong thing. I will change it.
 
 Today I have finished my girlfriends' reading notes.
 
+## 2026.2.6
+
+Trying
+
 ## Test
 
 `printf(Hello,world)`
