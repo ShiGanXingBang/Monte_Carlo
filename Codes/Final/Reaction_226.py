@@ -92,7 +92,7 @@ def smooth_grid():
 
 @ti.kernel
 def init_grid():
-    angle_rad = 5 * math.pi / 180
+    angle_rad = 15 * math.pi / 180
     k_mask = ti.abs(ti.tan(angle_rad))
     for i, j in grid_exist:
         grid_count_cl[i, j] = 0
@@ -253,7 +253,8 @@ def simulate_batch():
                             alive = False
                         else:
                             # 吸附
-                            if cl_n < 5:
+                            prob_adsorb = 1 - grid_count_cl[ipx, ipy]/4
+                            if cl_n < 3 and ti.random() < prob_adsorb:
                                 grid_count_cl[ipx, ipy] += 1
                             alive = False
                             

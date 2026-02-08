@@ -365,6 +365,14 @@ Today I have finished my girlfriends' reading notes.
 
 Trying
 
+## 2026.2.7
+
+修水管
+
+## 2026.2.8
+
+尝试修复bowing现象异常的bug
+
 ## Test
 
 `printf(Hello,world)`
