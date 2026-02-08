@@ -242,7 +242,7 @@ def simulate_batch():
                         prob_etch = 0.0
                         # 只有 Cl 饱和才刻蚀
                         if mat == 1 and cl_n >= 3:
-                            prob_etch = 0.1
+                            prob_etch = 0.1*0.1
                         
                         if ti.random() < prob_etch:
                             # 刻蚀
@@ -253,8 +253,8 @@ def simulate_batch():
                             alive = False
                         else:
                             # 吸附
-                            prob_adsorb = 1 - grid_count_cl[ipx, ipy]/4
-                            if cl_n < 3 and ti.random() < prob_adsorb:
+                            prob_adsorb = 1 - cl_n/4
+                            if cl_n < 3 and ti.random() < prob_adsorb * 0.1: # 0.1是Cl和中性粒子调整不同反应概率的系数
                                 grid_count_cl[ipx, ipy] += 1
                             alive = False
                             
