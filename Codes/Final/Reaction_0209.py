@@ -32,7 +32,7 @@ CD = right_border - left_border
 
 TOTAL_PARTICLES = 40000000
 BATCH_SIZE = 4000
-RATIO = 20.0 / 21.0  # 中性/总粒子比例
+RATIO = 2.0 / 21.0  # 中性/总粒子比例
 
 # --- Taichi 数据场 ---
 grid_exist = ti.field(dtype=ti.f32, shape=(ROWS, COLS))      
@@ -152,7 +152,8 @@ def simulate_batch():
         alive = True
         steps = 0
         ref_count = 0  # 反射计数
-        
+        energy = 1.0  # <--- 【新增】 初始化能量为 100%
+
         while alive and steps < 3000:
             steps += 1
             # 移动
@@ -184,6 +185,7 @@ def simulate_batch():
                 # --- 1. 反射判定 ---
                 # 反射概率 (参考 reflect_prob 函数)
                 # theta 对应 cos_theta，material=mat，species=is_ion
+                did_reflect = False
                 threshold = math.pi / 3  # π/3
                 prob_reflect = 0.0  # <--- 必须加上这一行初始化！
 
@@ -196,8 +198,16 @@ def simulate_batch():
                     prob_reflect = angle_else
                     # # 离子：掠角易反射 (1-cos)
                     # prob_reflect = 1.0 - cos_theta
-                    if mat == 2: prob_reflect += 0.2
-                    
+                    if mat == 2: 
+                        # 掩膜上反射概率更大 (例如增加 0.4，且保底 0.8)
+                        prob_reflect = ti.max(prob_reflect + 0.4, 0.8)   
+                    else:
+                        # Si 上反射概率相对小一些 (保持原样或微调)
+                        pass       
+
+                    # 确保概率不超过 1.0
+                    prob_reflect = ti.min(1.0, prob_reflect)
+
                     if ti.random() < prob_reflect:
                         did_reflect = True
                         ref_count += 1
@@ -216,6 +226,16 @@ def simulate_batch():
                     vx, vy = get_reflection_vector(vx, vy, nx, ny, is_ion)
                     px = px + nx * 1.5
                     py = py + ny * 1.5
+
+                    # 【修改点 B】：根据材质产生不同的能量损失
+                    if is_ion == 1:
+                        if mat == 2:
+                            # 掩膜反射：能量损失少 (保留 90%)
+                            energy *= 0.95 
+                        else:
+                            # Si 反射：能量损失大 (保留 40%)
+                            energy *= 0.40
+
                 else:
                     # >> 反应判定 (被捕获) <<
                     
@@ -224,11 +244,16 @@ def simulate_batch():
                         prob_etch = 0.1 
                         if cl_n > 0: prob_etch += 0.2
                         
-                        # [关键] 反射过的离子能量低，极难刻蚀
-                        if ref_count >= 1:
-                            prob_etch *= 0.5 
+                        # 【修改点 C】：使用能量变量来衰减刻蚀能力
+                        # 原逻辑: if ref_count >= 1: prob_etch *= 0.5
+                        # 新逻辑: 直接乘上当前的能量值
+                        prob_etch *= energy 
                         
-                        if mat == 2: prob_etch *= 0.2 
+                        # 如果能量太低，可能就无法刻蚀了 (可选)
+                        if energy < 0.1: prob_etch = 0.0
+
+                        # 掩膜的刻蚀概率比较小
+                        if mat == 2: prob_etch *= 0.2
                         
                         if ti.random() < prob_etch:
                             grid_exist[ipx, ipy] = ti.max(0.0, grid_exist[ipx, ipy] - 0.2)
