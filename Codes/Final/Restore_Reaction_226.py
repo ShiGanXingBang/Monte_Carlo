@@ -13,7 +13,7 @@ import time
 import os
 import csv
 
-# ================= 1. 环境初始化 =================
+# =================  1. 环境初始化 =================
 ti.init(arch=ti.gpu)
 
 SAVE_DIR = r"Csv\Test_MarchingSquares_2026"
@@ -30,7 +30,7 @@ Space = 100
 Num = 3
 CD = right_border - left_border
 
-TOTAL_PARTICLES = 10000000
+TOTAL_PARTICLES = 20000000
 BATCH_SIZE = 4000
 RATIO = 10.0 / 11.0  # 中性/总粒子比例
 
