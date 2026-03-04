@@ -385,6 +385,21 @@ Trying
 
 这段时间一直没干活，惭愧，心情有些焦虑。
 
+## 2026.3.4
+
+今天在搞claude、订阅codex以及gemini三个月会员的事情，codex没整好，没有钱钱。
+学习模块化编程，现在把所有代码都写在一个文件里面更改起来太费劲了，生活要一直努力学习
+
+- ctrl+g用来在claude plan模式打开vscode编辑器页面
+- /compact 压缩上下文 /clear 清除上下文
+- windows用start
+- 每次都想让Claude读取的可以放在claude.md
+- claude如何使用国产模型
+- /init 自动生成claude.md文件，可以通过对话让他变成中文
+- claude.md里面更改的内容需要重启后才能生效
+- /hook 可以让工具使用前后或者其他情况下指定添加指令，比如使用后进行格式化这种
+- a
+
 ## Test
 
 `printf(Hello,world)`
