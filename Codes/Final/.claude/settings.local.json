@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:doi.org)",
+      "WebFetch(domain:pubs.aip.org)",
+      "WebFetch(domain:pmc.ncbi.nlm.nih.gov)",
+      "WebFetch(domain:www.researchgate.net)",
+      "Bash(python:*)",
+      "Bash(export:*)",
+      "Bash(ls:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(powershell.exe:*)"
+    ]
+  }
+}

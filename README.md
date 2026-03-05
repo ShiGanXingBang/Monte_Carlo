@@ -398,7 +398,14 @@ Trying
 - /init 自动生成claude.md文件，可以通过对话让他变成中文
 - claude.md里面更改的内容需要重启后才能生效
 - /hook 可以让工具使用前后或者其他情况下指定添加指令，比如使用后进行格式化这种
-- a
+- 按两下esc进入回滚页面
+
+## 2026.3.5
+
+GLM4也不错。
+学会了低价gpt的方法
+【不当大兵，不当教师也能无限白嫖gptplus会员】 https://www.bilibili.com/video/BV1rNiQBqEej/?share_source=copy_web&vd_source=6086e68918d9533046c874883482d8af
+明天开始正式写代码吧，claude+gemini，codex目前不好使。claude的glm那个也好使了，deepseek也好使了。
 
 ## Test
 
