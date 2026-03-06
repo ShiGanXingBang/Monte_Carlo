@@ -407,6 +407,10 @@ GLM4也不错。
 【不当大兵，不当教师也能无限白嫖gptplus会员】 https://www.bilibili.com/video/BV1rNiQBqEej/?share_source=copy_web&vd_source=6086e68918d9533046c874883482d8af
 明天开始正式写代码吧，claude+gemini，codex目前不好使。claude的glm那个也好使了，deepseek也好使了。
 
+## 2026.3.6
+
+上午又尝试了各种各样的claude，整体进度不大。下午还是用gemini看看吧。
+
 ## Test
 
 `printf(Hello,world)`

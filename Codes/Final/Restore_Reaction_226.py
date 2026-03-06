@@ -92,7 +92,7 @@ def smooth_grid():
 
 @ti.kernel
 def init_grid():
-    angle_rad = 15 * math.pi / 180
+    angle_rad = 5 * math.pi / 180
     k_mask = ti.abs(ti.tan(angle_rad))
     for i, j in grid_exist:
         grid_count_cl[i, j] = 0

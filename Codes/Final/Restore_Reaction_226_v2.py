@@ -31,7 +31,16 @@ import csv
 
 # ================= 1. 环境初始化 =================
 
-ti.init(arch=ti.gpu)
+# Taichi GPU 初始化，带有重试机制
+try:
+    ti.init(arch=ti.gpu, device_memory_fraction=0.8)
+    print("[OK] GPU 初始化成功")
+except KeyboardInterrupt:
+    print("[ERROR] GPU 初始化被中断，切换到 CPU 模式")
+    ti.init(arch=ti.cpu)
+except Exception as e:
+    print(f"[ERROR] GPU 初始化失败: {e}，切换到 CPU 模式")
+    ti.init(arch=ti.cpu)
 
 # --- 路径配置 ---
 SAVE_DIR = r"Csv\Test_MarchingSquares_2026"
@@ -51,7 +60,7 @@ TRENCH_WIDTHS = [160, 140, 120, 100, 80]  # 五个槽的宽度
 PILLAR_WIDTH = 100    # 中间支柱宽度（nm）
 SIDE_MASK_WIDTH = 400 # 两侧掩膜宽度（nm）
 MASK_THICKNESS = 130  # 掩膜厚度（nm，网格单位）
-TAPER_ANGLE_DEG = 15  # 掩膜倾角（度）
+TAPER_ANGLE_DEG = 5  # 掩膜倾角（度）
 
 # --- 网格尺寸 ---
 # 根据 5 槽结构计算所需网格宽度
@@ -94,7 +103,7 @@ CL_SATURATION = 3      # Cl 饱和阈值
 ADSORPTION_PROB = 0.7  # 中性粒子吸附概率
 
 # --- 仿真参数 ---
-TOTAL_PARTICLES = 20000000
+TOTAL_PARTICLES = 100000000
 BATCH_SIZE = 4000
 RATIO = 10.0 / 11.0  # 中性/总粒子比例（10/11 ≈ 91% 中性）
 SYNC_INTERVAL = 50  # 每 N 个批次同步一次
@@ -208,10 +217,11 @@ def update_ion_energy(current_energy: float, mat_of_surface: int):
     Returns:
         更新后的能量
     """
+    new_energy = current_energy
     if mat_of_surface == MAT_MASK:
         # 掩膜反射：保留 90% 能量
         new_energy = current_energy * ENERGY_LOSS_MASK_REFLECTION
-    else:  # MAT_SI
+    elif mat_of_surface == MAT_SI:
         # Si 侧壁反射：保留 40% 能量（用于 bowing）
         new_energy = current_energy * ENERGY_LOSS_SI_REFLECTION
 
@@ -271,7 +281,6 @@ def smooth_grid():
 
 # ================= 3. 几何初始化（支持五槽） =================
 
-@ti.kernel
 def init_grid():
     """
     初始化五槽结构
@@ -281,66 +290,91 @@ def init_grid():
     掩膜倾角：15°
     """
     angle_rad = TAPER_ANGLE_DEG * math.pi / 180.0
-    k_mask = ti.abs(ti.tan(angle_rad))
-
-    for i, j in grid_exist:
-        grid_count_cl[i, j] = 0
-
-        # 真空区域
-        if j <= vacuum:
-            grid_exist[i, j] = 0.0
-            grid_material[i, j] = MAT_VACUUM
-
-        # 计算几何结构
-        current_x = int(SIDE_MASK_WIDTH / GRID_SCALE_NM)  # 起始位置
-
-        # 左侧掩膜
-        if j < deep_border and j > vacuum:
-            if i < current_x:
-                grid_material[i, j] = MAT_MASK
-                grid_exist[i, j] = 1.0
-
-        # 五个槽
-        for n in range(len(TRENCH_WIDTHS)):
-            trench_width = TRENCH_WIDTHS[n]
-            trench_width_grid = int(trench_width / GRID_SCALE_NM)
-            pillar_width_grid = int(PILLAR_WIDTH / GRID_SCALE_NM)
-
-            trench_left = current_x
-            trench_right = current_x + trench_width_grid
-
-            # 掩膜侧壁（带倾角）
-            for y in range(vacuum, deep_border):
-                offset = int((deep_border - y) * k_mask)
-                l_cur = max(0, min(trench_left - offset, ROWS - 1))
-                r_cur = max(0, min(trench_right + offset, ROWS - 1))
-
-                # 左侧支柱
-                l_side = max(0, min(trench_left - int(pillar_width_grid / 2), ROWS - 1))
-                r_side = max(0, min(trench_right + int(pillar_width_grid / 2), ROWS - 1))
-
-                # 填充掩膜
-                for x in range(l_side, r_side):
-                    if not (l_cur < x < r_cur):  # 不是槽内部
-                        grid_material[x, y] = MAT_MASK
-                        grid_exist[x, y] = 1.0
-                    else:  # 槽内部
-                        grid_material[x, y] = MAT_VACUUM
-                        grid_exist[x, y] = 0.0
-
-            current_x = trench_right + pillar_width_grid
-
-        # 右侧掩膜
-        if j < deep_border and j > vacuum:
-            if i >= current_x:
-                grid_material[i, j] = MAT_MASK
-                grid_exist[i, j] = 1.0
-
-        # Si 衬底
-        if j >= deep_border and j < COLS:
-            if grid_exist[i, j] == 0.0:
-                grid_exist[i, j] = 1.0
-                grid_material[i, j] = MAT_SI
+    k_mask = math.tan(angle_rad)
+    
+    # 使用NumPy数组以加速初始化
+    exist_array = np.zeros((ROWS, COLS), dtype=np.float32)
+    material_array = np.zeros((ROWS, COLS), dtype=np.int32)
+    count_cl_array = np.zeros((ROWS, COLS), dtype=np.int32)
+    
+    # 预处理：计算所有槽和支柱的边界
+    trench_regions = []  # [(left, right, pillar_width), ...]
+    current_x = int(SIDE_MASK_WIDTH / GRID_SCALE_NM)
+    
+    for n in range(len(TRENCH_WIDTHS)):
+        trench_width = TRENCH_WIDTHS[n]
+        trench_width_grid = int(trench_width / GRID_SCALE_NM)
+        pillar_width_grid = int(PILLAR_WIDTH / GRID_SCALE_NM)
+        
+        trench_left = current_x
+        trench_right = current_x + trench_width_grid
+        
+        trench_regions.append((trench_left, trench_right, pillar_width_grid))
+        current_x = trench_right + pillar_width_grid
+    
+    rightmost_x = current_x
+    left_mask_boundary = int(SIDE_MASK_WIDTH / GRID_SCALE_NM)
+    
+    # 遍历所有网格点
+    for j in range(COLS):
+        for i in range(ROWS):
+            # 真空区域
+            if j <= vacuum:
+                exist_array[i, j] = 0.0
+                material_array[i, j] = MAT_VACUUM
+                continue
+            
+            # 初始化为真空
+            is_filled = False
+            material = MAT_VACUUM
+            
+            if j < deep_border:
+                # 左侧掩膜
+                if i < left_mask_boundary:
+                    is_filled = True
+                    material = MAT_MASK
+                # 右侧掩膜
+                elif i >= rightmost_x:
+                    is_filled = True
+                    material = MAT_MASK
+                else:
+                    # 检查是否在槽中
+                    for trench_left, trench_right, pillar_width_grid in trench_regions:
+                        pillar_half = int(pillar_width_grid / 2)
+                        
+                        # 掩膜侧壁（带倾角）
+                        offset = int((deep_border - j) * k_mask)
+                        l_cur = max(0, min(trench_left - offset, ROWS - 1))
+                        r_cur = max(0, min(trench_right + offset, ROWS - 1))
+                        
+                        # 支柱范围
+                        l_side = max(0, min(trench_left - pillar_half, ROWS - 1))
+                        r_side = max(0, min(trench_right + pillar_half, ROWS - 1))
+                        
+                        # 检查i是否在支柱范围内
+                        if l_side <= i < r_side:
+                            # 如果在槽内部（l_cur < i < r_cur），则为真空
+                            if l_cur < i < r_cur:
+                                is_filled = False
+                                material = MAT_VACUUM
+                            # 否则为掩膜
+                            else:
+                                is_filled = True
+                                material = MAT_MASK
+                            break
+            
+            # Si 衬底
+            if j >= deep_border and is_filled == False:
+                is_filled = True
+                material = MAT_SI
+            
+            exist_array[i, j] = 1.0 if is_filled else 0.0
+            material_array[i, j] = material
+    
+    # 将NumPy数组复制到Taichi字段
+    grid_exist.from_numpy(exist_array)
+    grid_material.from_numpy(material_array)
+    grid_count_cl.from_numpy(count_cl_array)
 
 
 # ================= 4. 核心仿真逻辑（反射优先 + 能量追踪） =================
