@@ -411,6 +411,10 @@ GLM4也不错。
 
 上午又尝试了各种各样的claude，整体进度不大。下午还是用gemini看看吧。
 
+## 2026.3.10
+
+Nan
+
 ## Test
 
 `printf(Hello,world)`
