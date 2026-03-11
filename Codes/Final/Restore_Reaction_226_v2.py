@@ -7,6 +7,7 @@
 4. 改进反射概率模型（基于文献）
 5. 改进刻蚀产额模型（Y ∝ √E）
 6. 增强 Bowing 效应
+直接按照SEM电镜的轮廓进行仿真，但是没有什么鸟用。
 
 参考文献：
 - Modeling of microtrenching and bowing effects in nanoscale Si ICP etching

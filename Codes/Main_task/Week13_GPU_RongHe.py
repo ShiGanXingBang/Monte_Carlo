@@ -1,3 +1,6 @@
+"""
+加入轮廓仔细拟合之前的2026.1.6
+"""
 import taichi as ti
 import numpy as np
 import matplotlib.pyplot as plt
@@ -102,7 +105,7 @@ def get_reflection_vector(vx: float, vy: float, nx: float, ny: float, is_ion: in
 @ti.kernel
 def init_grid():
     """初始化几何结构 (与 Week12 一致)"""
-    angle_rad = 15 * math.pi / 180
+    angle_rad = 0 * math.pi / 180
     k_mask = ti.abs(ti.tan(angle_rad))
     for i, j in grid_exist:
         grid_count_cl[i, j] = 0
