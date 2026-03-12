@@ -415,6 +415,10 @@ GLM4也不错。
 
 Nan
 
+## 2026.3.12
+
+Have a list of the machine learning study.
+
 ## Test
 
 `printf(Hello,world)`

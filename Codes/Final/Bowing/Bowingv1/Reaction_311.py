@@ -1,0 +1,498 @@
+import taichi as ti
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import to_rgb
+from scipy.ndimage import gaussian_filter
+import math
+import os
+import csv
+
+try:
+    from skimage import measure
+    HAS_SKIMAGE = True
+except ImportError:
+    HAS_SKIMAGE = False
+
+# ============================================================
+# 1. 环境初始化
+# ============================================================
+ti.init(arch=ti.gpu)
+
+SAVE_DIR = r"Csv/Bowing_SEM_Reproduction_2026"
+os.makedirs(SAVE_DIR, exist_ok=True)
+
+# ------------------ 计算域与几何参数 ------------------
+ROWS, COLS = 1000, 700        # 注意：这里仍采用 grid[x, y] 的存储方式
+VACUUM_Y = 100
+MASK_BOTTOM_Y = 245
+
+# 更接近 SEM 的多沟槽阵列：默认 4 条主沟槽
+LEFT_BORDER = 174
+RIGHT_BORDER = 236
+SPACE = 80
+NUM_TRENCH = 4
+CD = RIGHT_BORDER - LEFT_BORDER
+MASK_TAPER_DEG = 3.5
+
+# ------------------ 粒子统计参数 ------------------
+TOTAL_PARTICLES = 15_400_000
+BATCH_SIZE = 4000
+RATIO_NEUTRAL = 0.84          # 中性/总粒子比例
+MAX_STEPS = 3200
+STEP_LEN = 1.10
+MAX_STEPS = 3200
+DISPLAY_EVERY = 50
+MAX_HISTORY = 90
+
+# ------------------ Bowing 增强参数 ------------------
+# 1) 角分布稍微放宽，增强侧壁撞击与再分布
+ION_SIGMA_DEG = 2.4
+NEUTRAL_SIGMA_DEG = 8.6
+
+# 2) 离子：保留各向异性向下刻蚀，但允许反射离子继续参与侧壁/底部作用
+ION_BASE_ETCH = 0.11
+ION_CL_BOOST = 0.17
+ION_MASK_FACTOR = 0.08
+ION_REFLECT_FACTOR_1 = 0.62
+ION_REFLECT_FACTOR_2 = 0.26
+
+# 3) 中性粒子：降低“直接反射走人”，增强吸附 + 饱和后化学刻蚀
+NEUTRAL_REFLECT_BASE = 0.25
+NEUTRAL_REFLECT_CL_GAIN = 0.06
+NEUTRAL_REFLECT_MASK_GAIN = 0.10
+NEUTRAL_REFLECT_CAP = 0.82
+ADSORB_BASE = 0.28
+MASK_ADSORB_FACTOR = 0.18
+MAX_CL_COVERAGE = 4
+
+# 4) 数值平滑：默认关闭；若噪声太大再低频启用
+ENABLE_WEAK_SMOOTH = False
+SMOOTH_EVERY = 20 * DISPLAY_EVERY
+SMOOTH_CENTER = 0.995
+
+# 5) 单次刻蚀步长
+ETCH_STEP_ION = 0.18
+ETCH_STEP_NEUTRAL = 0.13
+
+# 6) 仅用于显示的裁剪窗口（更像 SEM 视野）
+VIEW_MARGIN_X = 70
+VIEW_MARGIN_Y_TOP = 20
+VIEW_MARGIN_Y_BOTTOM = 260
+
+# ============================================================
+# 2. Taichi 数据场
+# ============================================================
+grid_exist = ti.field(dtype=ti.f32, shape=(ROWS, COLS))      # 0=真空, 1=实体, 中间值=部分刻蚀
+grid_material = ti.field(dtype=ti.i32, shape=(ROWS, COLS))   # 0=真空, 1=Si, 2=Mask
+grid_count_cl = ti.field(dtype=ti.i32, shape=(ROWS, COLS))   # 表面 Cl 覆盖度
+grid_temp = ti.field(dtype=ti.f32, shape=(ROWS, COLS))
+
+# ============================================================
+# 3. 物理辅助函数
+# ============================================================
+@ti.func
+def clamp01(x: ti.f32) -> ti.f32:
+    return ti.min(1.0, ti.max(0.0, x))
+
+
+@ti.func
+def get_surface_normal(px: int, py: int):
+    """计算局部表面法线，指向真空。"""
+    nx, ny = 0.0, 0.0
+    for i, j in ti.static(ti.ndrange((-2, 3), (-2, 3))):
+        if 0 <= px + i < ROWS and 0 <= py + j < COLS:
+            if grid_exist[px + i, py + j] < 0.5:
+                nx += float(i)
+                ny += float(j)
+    norm = ti.sqrt(nx * nx + ny * ny) + 1e-6
+    return nx / norm, ny / norm
+
+
+@ti.func
+def get_reflection_vector(vx: ti.f32, vy: ti.f32, nx: ti.f32, ny: ti.f32, is_ion: ti.i32):
+    """离子镜面反射；中性粒子近似 Lambertian 漫反射。"""
+    rvx, rvy = 0.0, 0.0
+    if is_ion == 1:
+        dot = vx * nx + vy * ny
+        rvx = vx - 2.0 * dot * nx
+        rvy = vy - 2.0 * dot * ny
+    else:
+        tx, ty = -ny, nx
+        rand_s = (ti.random() - 0.5) * 2.0
+        rand_s = ti.max(-1.0, ti.min(1.0, rand_s))
+        rand_c = ti.sqrt(ti.max(0.0, 1.0 - rand_s * rand_s))
+        rvx = nx * rand_c + tx * rand_s
+        rvy = ny * rand_c + ty * rand_s
+
+    norm = ti.sqrt(rvx * rvx + rvy * rvy) + 1e-6
+    return rvx / norm, rvy / norm
+
+
+@ti.func
+def neutral_etch_prob(cl_n: ti.i32) -> ti.f32:
+    """Cl 覆盖度越高，中性化学刻蚀越强。"""
+    p = 0.0
+    if cl_n == 0:
+        p = 0.00
+    elif cl_n == 1:
+        p = 0.03
+    elif cl_n == 2:
+        p = 0.08
+    elif cl_n == 3:
+        p = 0.15
+    else:
+        p = 0.22
+    return p
+
+
+@ti.kernel
+def smooth_grid():
+    """弱平滑：只在噪声太大时低频启用。"""
+    w_center = SMOOTH_CENTER
+    w_neighbor = (1.0 - w_center) / 4.0
+    for i, j in grid_exist:
+        if 1 <= i < ROWS - 1 and 1 <= j < COLS - 1:
+            grid_temp[i, j] = (
+                grid_exist[i, j] * w_center
+                + (grid_exist[i + 1, j] + grid_exist[i - 1, j] + grid_exist[i, j + 1] + grid_exist[i, j - 1]) * w_neighbor
+            )
+        else:
+            grid_temp[i, j] = grid_exist[i, j]
+
+    for i, j in grid_exist:
+        grid_exist[i, j] = grid_temp[i, j]
+
+
+# ============================================================
+# 4. 几何初始化
+# ============================================================
+@ti.kernel
+def init_grid():
+    k_mask = ti.abs(ti.tan(MASK_TAPER_DEG * math.pi / 180.0))
+
+    for i, j in grid_exist:
+        grid_count_cl[i, j] = 0
+
+        if j <= VACUUM_Y:
+            grid_exist[i, j] = 0.0
+            grid_material[i, j] = 0
+        elif j < MASK_BOTTOM_Y:
+            # 默认这一层全是 mask，再挖出开口
+            grid_exist[i, j] = 1.0
+            grid_material[i, j] = 2
+
+            for n in range(NUM_TRENCH):
+                x_left = LEFT_BORDER + n * (CD + SPACE)
+                x_right = RIGHT_BORDER + n * (CD + SPACE)
+                offset = int((MASK_BOTTOM_Y - j) * k_mask)
+                open_left = max(0, x_left - offset)
+                open_right = min(ROWS - 1, x_right + offset)
+
+                if open_left < i < open_right:
+                    grid_exist[i, j] = 0.0
+                    grid_material[i, j] = 0
+        else:
+            grid_exist[i, j] = 1.0
+            grid_material[i, j] = 1
+
+
+# ============================================================
+# 5. 核心仿真逻辑（Bowing 增强版）
+# ============================================================
+@ti.kernel
+def simulate_batch():
+    for k in range(BATCH_SIZE):
+        # --- A. 粒子入射 ---
+        px, py = ti.random() * (ROWS - 1), 1.0
+
+        is_ion = 0
+        if ti.random() > RATIO_NEUTRAL:
+            is_ion = 1
+
+        sigma = (ION_SIGMA_DEG if is_ion == 1 else NEUTRAL_SIGMA_DEG) * (math.pi / 180.0)
+        angle = ti.randn() * sigma
+        angle = ti.max(-math.pi / 2.0, ti.min(math.pi / 2.0, angle))
+
+        vx, vy = ti.sin(angle), ti.cos(angle)
+        alive = True
+        steps = 0
+        ref_count = 0
+
+        while alive and steps < MAX_STEPS:
+            steps += 1
+
+            px_n = px + vx * STEP_LEN
+            py_n = py + vy * STEP_LEN
+
+            # 周期边界（x 向）
+            if px_n < 0:
+                px_n += ROWS
+            if px_n >= ROWS:
+                px_n -= ROWS
+            if py_n < 0 or py_n >= COLS:
+                alive = False
+                break
+
+            ipx, ipy = int(px_n), int(py_n)
+
+            # --- B. 碰撞检测 ---
+            if grid_exist[ipx, ipy] > 0.5:
+                mat = grid_material[ipx, ipy]
+                cl_n = grid_count_cl[ipx, ipy]
+                if cl_n > MAX_CL_COVERAGE:
+                    cl_n = MAX_CL_COVERAGE
+
+                nx, ny = get_surface_normal(ipx, ipy)
+                cos_theta = clamp01(-(vx * nx + vy * ny))
+
+                # ==================================================
+                # 先反射、后反应：但不再把反射离子的作用压得过死
+                # ==================================================
+                did_reflect = False
+                prob_reflect = 0.0
+                if is_ion == 1:
+                    prob_reflect = 0.15 + 0.75 * (1.0 - cos_theta)
+                    if mat == 2:
+                        prob_reflect += 0.10
+                    prob_reflect = clamp01(prob_reflect)
+                else:
+                    prob_reflect = NEUTRAL_REFLECT_BASE + NEUTRAL_REFLECT_CL_GAIN * cl_n
+                    if mat == 2:
+                        prob_reflect += NEUTRAL_REFLECT_MASK_GAIN
+                    if prob_reflect > NEUTRAL_REFLECT_CAP:
+                        prob_reflect = NEUTRAL_REFLECT_CAP
+
+                if ti.random() < prob_reflect:
+                    did_reflect = True
+                    ref_count += 1
+
+                if did_reflect:
+                    vx, vy = get_reflection_vector(vx, vy, nx, ny, is_ion)
+                    # 推离表面，防止粒子黏在界面上反复撞击同一点
+                    px = px_n + nx * 1.2
+                    py = py_n + ny * 1.2
+                else:
+                    # ==================================================
+                    # 反应分支
+                    # ==================================================
+                    if is_ion == 1:
+                        # 各向异性主导，但允许一定侧壁作用，利于 bowing 形成
+                        angle_factor = 0.55 + 0.45 * cos_theta
+                        prob_etch = ION_BASE_ETCH * angle_factor
+
+                        if mat == 1:
+                            prob_etch += ION_CL_BOOST * (cl_n / float(MAX_CL_COVERAGE))
+                        else:
+                            prob_etch *= ION_MASK_FACTOR
+
+                        if ref_count == 1:
+                            prob_etch *= ION_REFLECT_FACTOR_1
+                        elif ref_count >= 2:
+                            prob_etch *= ION_REFLECT_FACTOR_2
+
+                        prob_etch = clamp01(prob_etch)
+
+                        if ti.random() < prob_etch:
+                            grid_exist[ipx, ipy] = ti.max(0.0, grid_exist[ipx, ipy] - ETCH_STEP_ION)
+                            if grid_exist[ipx, ipy] <= 0.0:
+                                grid_material[ipx, ipy] = 0
+                                grid_count_cl[ipx, ipy] = 0
+                        alive = False
+
+                    else:
+                        # 中性粒子：优先走化学吸附/化学刻蚀
+                        prob_etch = 0.0
+                        if mat == 1:
+                            prob_etch = neutral_etch_prob(cl_n)
+
+                        if ti.random() < prob_etch:
+                            grid_exist[ipx, ipy] = ti.max(0.0, grid_exist[ipx, ipy] - ETCH_STEP_NEUTRAL)
+                            if grid_exist[ipx, ipy] <= 0.0:
+                                grid_material[ipx, ipy] = 0
+                                grid_count_cl[ipx, ipy] = 0
+                        else:
+                            prob_adsorb = ADSORB_BASE * (1.0 - cl_n / float(MAX_CL_COVERAGE))
+                            if mat == 2:
+                                prob_adsorb *= MASK_ADSORB_FACTOR
+                            prob_adsorb = ti.max(0.0, prob_adsorb)
+
+                            if grid_material[ipx, ipy] == 1 and grid_count_cl[ipx, ipy] < MAX_CL_COVERAGE:
+                                if ti.random() < prob_adsorb:
+                                    grid_count_cl[ipx, ipy] += 1
+                        alive = False
+            else:
+                px, py = px_n, py_n
+
+
+# ============================================================
+# 6. 轮廓提取与保存
+# ============================================================
+def get_contours(raw_grid):
+    """
+    返回多个独立轮廓。这里 raw_grid 的轴顺序是 [x, y]，
+    所以 skimage 返回的点 p=(axis0, axis1) 其实正好就是 (x, y)。
+    """
+    smoothed = gaussian_filter(raw_grid.astype(np.float32), sigma=1.0)
+    contour_list = []
+
+    if HAS_SKIMAGE:
+        contours = measure.find_contours(smoothed, 0.5)
+        for contour in contours:
+            one_contour = [(float(p[0]), float(p[1])) for p in contour]
+            if len(one_contour) >= 12:
+                xs = [p[0] for p in one_contour]
+                ys = [p[1] for p in one_contour]
+                if (max(xs) - min(xs) >= 2.0) or (max(ys) - min(ys) >= 2.0):
+                    contour_list.append(one_contour)
+    else:
+        fig_tmp = plt.figure()
+        ax_tmp = fig_tmp.add_subplot(111)
+        cnt = ax_tmp.contour(smoothed.T, levels=[0.5])
+        for path in cnt.collections[0].get_paths():
+            verts = path.vertices
+            one_contour = [(float(v[0]), float(v[1])) for v in verts]
+            if len(one_contour) >= 12:
+                contour_list.append(one_contour)
+        plt.close(fig_tmp)
+
+    return contour_list
+
+
+def split_contour_on_jumps(contour, jump_thresh=35.0):
+    """防止偶发大跳点把不相邻位置硬连成一条线。"""
+    if len(contour) < 2:
+        return [contour]
+
+    segments = []
+    current = [contour[0]]
+
+    for i in range(1, len(contour)):
+        x0, y0 = contour[i - 1]
+        x1, y1 = contour[i]
+        if abs(x1 - x0) > jump_thresh or abs(y1 - y0) > jump_thresh:
+            if len(current) > 1:
+                segments.append(current)
+            current = [contour[i]]
+        else:
+            current.append(contour[i])
+
+    if len(current) > 1:
+        segments.append(current)
+
+    return segments
+
+
+def save_csv(contours, filename):
+    filepath = os.path.join(SAVE_DIR, filename)
+    with open(filepath, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['contour_id', 'x', 'y'])
+        for cid, contour in enumerate(contours):
+            for x, y in contour:
+                writer.writerow([cid, x, y])
+
+
+# ============================================================
+# 7. 可视化辅助
+# ============================================================
+def build_rgb(exist_data, mat_data):
+    rgb = np.zeros((ROWS, COLS, 3), dtype=np.float32)
+    vac_mask = exist_data < 0.5
+    mask_mask = (exist_data >= 0.5) & (mat_data == 2)
+    si_mask = (exist_data >= 0.5) & (mat_data == 1)
+
+    rgb[vac_mask] = to_rgb("#008CFF")
+    rgb[mask_mask] = to_rgb("#20DDE0")
+    rgb[si_mask] = to_rgb("#00008B")
+    return rgb
+
+
+def plot_state(ax, exist_data, mat_data, history_lines, current_count):
+    ax.clear()
+    rgb = build_rgb(exist_data, mat_data)
+    ax.imshow(np.transpose(rgb, (1, 0, 2)), origin='upper')
+
+    n_hist = len(history_lines)
+    if n_hist == 0:
+        n_hist = 1
+
+    for idx, contours_in_frame in enumerate(history_lines):
+        alpha = 0.22 + 0.78 * (idx / n_hist)
+        color = 'white' if idx == len(history_lines) - 1 else 'red'
+        lw = 1.6 if idx == len(history_lines) - 1 else 0.7
+
+        for contour in contours_in_frame:
+            for seg in split_contour_on_jumps(contour, jump_thresh=35.0):
+                xs = [p[0] for p in seg]
+                ys = [p[1] for p in seg]
+                ax.plot(xs, ys, color=color, alpha=alpha, linewidth=lw)
+
+    first_left = LEFT_BORDER
+    last_right = RIGHT_BORDER + (NUM_TRENCH - 1) * (CD + SPACE)
+    x_min = max(0, first_left - VIEW_MARGIN_X)
+    x_max = min(ROWS, last_right + VIEW_MARGIN_X)
+    y_min = max(0, VACUUM_Y - VIEW_MARGIN_Y_TOP)
+    y_max = min(COLS, MASK_BOTTOM_Y + VIEW_MARGIN_Y_BOTTOM)
+
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_max, 0)
+    ax.set_title(f"Bowing-Enhanced SEM Reproduction: {current_count}/{TOTAL_PARTICLES}")
+
+
+# ============================================================
+# 8. 主程序
+# ============================================================
+def main():
+    if not HAS_SKIMAGE:
+        print("Warning: 未检测到 scikit-image，将退回 Matplotlib contour 引擎。")
+        print("建议安装: pip install scikit-image")
+
+    init_grid()
+
+    plt.ion()
+    fig, ax = plt.subplots(figsize=(12, 8))
+    history_lines = []
+
+    print(">>> 模拟开始：Bowing 增强版（保留轮廓修复，不再让平滑和高反射把 bowing 压没） <<<")
+    num_batches = TOTAL_PARTICLES // BATCH_SIZE
+
+    for i in range(num_batches):
+        simulate_batch()
+
+        if ENABLE_WEAK_SMOOTH and (i % SMOOTH_EVERY == 0) and i > 0:
+            smooth_grid()
+
+        if i % DISPLAY_EVERY == 0:
+            ti.sync()
+            mat_data = grid_material.to_numpy()
+            exist_data = grid_exist.to_numpy()
+
+            contours = get_contours(exist_data)
+            current_count = i * BATCH_SIZE
+            save_csv(contours, f"contour_{current_count}.csv")
+
+            if len(contours) > 0:
+                history_lines.append(contours)
+                if len(history_lines) > MAX_HISTORY:
+                    history_lines.pop(0)
+
+            plot_state(ax, exist_data, mat_data, history_lines, current_count)
+            plt.pause(0.01)
+            print(f"进度: {i / num_batches:.1%}", end='\r')
+
+    ti.sync()
+    final_exist = grid_exist.to_numpy()
+    final_mat = grid_material.to_numpy()
+    final_contours = get_contours(final_exist)
+    save_csv(final_contours, "contour_final.csv")
+
+    plot_state(ax, final_exist, final_mat, history_lines + [final_contours], TOTAL_PARTICLES)
+    fig.savefig(os.path.join(SAVE_DIR, "final_profile.png"), dpi=200, bbox_inches='tight')
+
+    print("\n>>> 模拟完成。已保存 contour_final.csv 和 final_profile.png")
+    plt.ioff()
+    plt.show()
+
+
+if __name__ == "__main__":
+    main()
