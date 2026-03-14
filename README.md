@@ -419,6 +419,10 @@ Nan
 
 Have a list of the machine learning study.
 
+## 2026.3.13
+
+deep learning.
+
 ## Test
 
 `printf(Hello,world)`
